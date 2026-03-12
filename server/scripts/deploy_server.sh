@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SERVER="superuser263@114.28.243.122"
+SERVER="${WE_SERVER:-user@your-gpu-server}"
 REMOTE_CODE="~/antigravity/we/server"
 LOCAL_SERVER="$(cd "$(dirname "$0")/.." && pwd)"
 
