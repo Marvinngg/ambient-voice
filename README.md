@@ -38,7 +38,8 @@
 
 - macOS 26 (Tahoe) 或更高
 - Apple Silicon
-- ollama 或任意 OpenAI 兼容 API（可选，用于润色/蒸馏）
+- ollama 或任意 OpenAI 兼容 API（可选，用于润色）
+- Gemini API key（可选，用于蒸馏）
 
 ## Install
 
@@ -67,6 +68,10 @@ make install  # 编译 + 安装到 ~/Applications + 开机自启
 
 `~/.we/config.json`，修改后自动生效，无需重启。首次运行自动创建。
 
+润色和蒸馏是两件不同的事，各自有独立的 API 配置：
+- **润色** (`server` + `polish`)：每次说话实时调用，要求低延迟，适合本地小模型
+- **蒸馏** (`distill`)：后台批量运行，用大模型纠正转写输出，产出训练数据
+
 ```json
 {
   "server": {
@@ -92,44 +97,148 @@ make install  # 编译 + 安装到 ~/Applications + 开机自启
 }
 ```
 
-### server — 润色用的 LLM
+### server + polish — 实时润色
+
+每次语音输入后实时调用，将口语转为书面语再注入。要求低延迟，推荐本地 ollama。
 
 | 字段 | 说明 |
 |------|------|
-| `api` | `ollama` 或 `openai`（兼容 Gemini、DeepSeek、OpenRouter 等任意 OpenAI 格式 API） |
-| `endpoint` | 服务地址。ollama 默认 `http://localhost:11434`；Gemini 用 `https://generativelanguage.googleapis.com/v1beta/openai` |
-| `model` | 模型名。关闭润色时此项无效 |
-| `api_key` | OpenAI 兼容 API 的密钥（ollama 不需要） |
+| `server.api` | `ollama` 或 `openai`（兼容任意 OpenAI 格式 API） |
+| `server.endpoint` | 润色服务地址。ollama 默认 `http://localhost:11434` |
+| `server.model` | 润色模型（推荐轻量模型，如 `qwen3:0.6b`） |
+| `server.api_key` | API 密钥（ollama 不需要） |
+| `polish.enabled` | `false` 则跳过润色，直接注入原始转写 |
+| `polish.system_prompt` | 润色指令 |
 
-### polish — 润色开关
+### distill — 蒸馏（独立于润色）
 
-| 字段 | 说明 |
-|------|------|
-| `enabled` | `false` 则直接注入原始转写，零延迟零成本 |
-| `system_prompt` | 润色指令，可按需调整 |
-
-### distill — 蒸馏（路线 B）
-
-用大模型纠正 SA 转写输出，生成高质量训练对。
+后台批量运行，用大模型纠正 SA 转写结果，生成 `(input, output)` 训练对。与润色完全独立，有自己的 API 配置。
 
 | 字段 | 说明 |
 |------|------|
-| `enabled` | 是否在同步时自动运行蒸馏 |
-| `base_url` | OpenAI 兼容 API 地址 |
-| `api_key` | API 密钥 |
-| `model` | 蒸馏用模型（推荐 `gemini-2.5-flash`，性价比最高） |
+| `distill.enabled` | 是否在同步时自动运行蒸馏 |
+| `distill.base_url` | 蒸馏用 API 地址（OpenAI 兼容格式） |
+| `distill.api_key` | 蒸馏用 API 密钥（如 Gemini API key） |
+| `distill.model` | 蒸馏模型（推荐 `gemini-2.5-flash`，准确且便宜） |
 
-### sync — 数据同步
+Gemini 示例：`base_url` = `https://generativelanguage.googleapis.com/v1beta/openai`
 
-将本地数据（转写历史、音频、蒸馏结果）同步到训练服务器。
+### sync — 数据同步到训练服务器
+
+将本地数据（转写历史、音频、蒸馏结果）通过 rsync + SSH 同步到 GPU 服务器，用于路线 A (Whisper) 蒸馏和模型微调。
 
 | 字段 | 说明 |
 |------|------|
-| `enabled` | 是否启用同步 |
-| `server` | SSH 目标，如 `user@192.168.1.100` |
-| `remote_dir` | 远程目录 |
+| `sync.enabled` | 是否启用同步 |
+| `sync.server` | SSH 目标（如 `user@192.168.1.100`） |
+| `sync.remote_dir` | 远程目录路径 |
 
-启用后：`make install-sync` 安装自动同步（voice-history 变化时自动触发），或 `make sync` 手动执行。
+启用后：`make install-sync` 安装自动同步（voice-history 变化时触发），或 `make sync` 手动执行。
+
+## Data
+
+所有数据存储在 `~/.we/`：
+
+```
+~/.we/
+├── config.json            # 配置（热更新）
+├── voice-history.jsonl    # 客户端采集：每次转写的完整记录
+├── corrections.jsonl      # 客户端采集：用户纠错记录
+├── audio/                 # 客户端采集：原始录音 WAV
+├── distill-gemini.jsonl   # 蒸馏产出：路线 B（Gemini 纠正）
+├── distill-whisper.jsonl  # 蒸馏产出：路线 A（Whisper 重转写）
+├── merged-pairs.jsonl     # 蒸馏产出：合并后的最终训练集
+└── meetings/              # 会议转录 Markdown
+```
+
+### voice-history.jsonl — 客户端采集，蒸馏输入
+
+每次语音输入自动写入一条，是整个数据飞轮的起点。
+
+```jsonc
+{
+  "timestamp": "2026-03-12T10:30:00Z",
+  "rawSA": "我在试一下能不能转",          // SpeechAnalyzer 原始输出
+  "l1Text": "我再试一下能不能转",          // L1 候选词纠错后
+  "polishedText": "我再试一下能不能转写。", // L2 润色后（可能为 null）
+  "finalText": "我再试一下能不能转写。",    // 最终注入的文本
+  "words": [                              // 词级信息
+    {"text": "我", "confidence": 0.98},
+    {"text": "在", "confidence": 0.45},    // 低置信度 → 潜在错误点
+    ...
+  ],
+  "audioPath": "~/.we/audio/20260312-103000.wav",
+  "appBundleID": "com.tencent.xinWeChat",  // 当时的焦点应用
+  "appName": "微信"
+}
+```
+
+### corrections.jsonl — 用户纠错（高优训练数据）
+
+用户手动修改注入文本后自动采集（需开启 `correction_enabled`）。人工纠错在合并时权重 x2。
+
+```jsonc
+{
+  "timestamp": "2026-03-12T10:30:15Z",
+  "rawText": "我在试一下",         // 注入时的文本
+  "insertedText": "我在试一下",    // 注入的原文
+  "userFinalText": "我再试一下",   // 用户修改后的文本
+  "diffs": [                      // 语义级 diff
+    {"original": "在", "corrected": "再"}
+  ],
+  "quality": 0.85,                // 纠正质量分
+  "source": "human",
+  "appBundleID": "com.tencent.xinWeChat"
+}
+```
+
+### distill-gemini.jsonl — 蒸馏路线 B 产出
+
+Gemini 2.5 Flash 对 SA 原文 + 小模型润色结果做纠正，生成训练对。
+
+```jsonc
+{
+  "input": "我在试一下能不能转",    // SA 原始输出（训练输入）
+  "output": "我再试一下能不能转",   // Gemini 纠正后（训练目标）
+  "source": "gemini",
+  "polished_0.6b": "我再试一下能不能转写。",  // 小模型的润色结果（参考）
+  "edit_ratio": 0.05,             // 编辑距离比（>0.3 被过滤）
+  "avg_confidence": 0.82,         // SA 词级平均置信度
+  "timestamp": "2026-03-12T10:30:00Z"
+}
+```
+
+### distill-whisper.jsonl — 蒸馏路线 A 产出
+
+Whisper large 对原始音频重新转写，与 SA 输出配对。在 GPU 服务器上运行。
+
+```jsonc
+{
+  "input": "我在试一下能不能转",    // SA 原始输出（训练输入）
+  "output": "我再试一下能不能转",   // Whisper 转写（训练目标）
+  "source": "whisper",
+  "edit_ratio": 0.05,
+  "avg_confidence": 0.82,
+  "audio_path": "~/.we/audio/20260312-103000.wav",
+  "timestamp": "2026-03-12T10:30:00Z"
+}
+```
+
+### merged-pairs.jsonl — 合并后的最终训练集
+
+`merge_pairs.py` 合并路线 A + B + 人工纠错，去重 + 冲突仲裁。
+
+```jsonc
+{
+  "input": "我在试一下能不能转",
+  "output": "我再试一下能不能转",
+  "source": "human",              // human > gemini = whisper
+  "sample_weight": 2.0,           // human=2.0, 多路一致=1.5, 默认=1.0
+  "conflict": false               // true 表示路线 A/B 结果不一致
+}
+```
+
+合并优先级：**人工纠错 > 多路一致 > 单路结果**。冲突条目保留但标记，供人工审查。
 
 ## Architecture
 
@@ -148,14 +257,17 @@ make install  # 编译 + 安装到 ~/Applications + 开机自启
              │
              ▼
       voice-history.jsonl ──→ 自动同步 ──→ 训练服务器
-                                            │
-                              ┌──────────────┤
-                              ▼              ▼
-                     路线A: Whisper    路线B: Gemini
-                              │              │
-                              └──────┬───────┘
-                                     ▼
-                              合并 → 微调 → 更好的端侧模型
+             │                                │
+             │                  ┌──────────────┤
+             ▼                  ▼              ▼
+      corrections.jsonl   路线A: Whisper  路线B: Gemini
+             │                  │              │
+             └──────────────────┴──────┬───────┘
+                                       ▼
+                                merge_pairs.py
+                                       │
+                                       ▼
+                                微调 → 更好的端侧模型
 ```
 
 - **G1** — SpeechDetector / CoreAudio HAL VAD
@@ -164,18 +276,6 @@ make install  # 编译 + 安装到 ~/Applications + 开机自启
 - **会议模式** — FluidAudio 说话人分离（CoreML 端侧）
 
 </details>
-
-## Data
-
-```
-~/.we/
-├── config.json            # 配置（热更新）
-├── voice-history.jsonl    # 转写历史（蒸馏输入）
-├── corrections.jsonl      # 用户纠错（高优训练数据）
-├── distill-gemini.jsonl   # 蒸馏产出（路线B）
-├── audio/                 # 录音文件（路线A输入）
-└── meetings/              # 会议转录 Markdown
-```
 
 ## Development
 
