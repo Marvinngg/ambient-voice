@@ -1,0 +1,36 @@
+# Swift / SPM
+client/.build/
+client/.swiftpm/
+client/Package.resolved
+
+# Python
+server/__pycache__/
+server/*.pyc
+server/venv/
+server/.env
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+
+# Claude Code
+.claude/
+
+# Data (user-specific)
+*.jsonl
+*.offset
+
+# User config (contains API keys)
+config.json
+
+# Secrets
+*.pem
+*.p12
+*.key
