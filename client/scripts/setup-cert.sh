@@ -50,9 +50,19 @@ openssl req -x509 -newkey rsa:2048 \
 echo "  证书已生成"
 
 # 5. 导出为 p12 格式
+# OpenSSL 3.x mishandles empty PKCS12 passwords, causing macOS `security import`
+# to fail with "MAC verification failed". Use a temporary password as workaround.
+# Also force legacy algorithms (3DES + SHA1) since OpenSSL 3.x defaults to
+# AES-256-CBC which macOS can't read.
+P12_PASS="setup-$(date +%s)"
 openssl pkcs12 -export \
     -out "$P12" -inkey "$KEY" -in "$CERT" \
-    -passout pass: \
+    -passout "pass:$P12_PASS" \
+    -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg SHA1 \
+    2>/dev/null \
+|| openssl pkcs12 -export \
+    -out "$P12" -inkey "$KEY" -in "$CERT" \
+    -passout "pass:$P12_PASS" \
     2>/dev/null
 
 echo "  已导出 p12"
@@ -60,19 +70,23 @@ echo "  已导出 p12"
 # 6. 导入到 login keychain
 security import "$P12" \
     -k "$KEYCHAIN" \
-    -P "" \
+    -P "$P12_PASS" \
     -T /usr/bin/codesign
 
 echo "  已导入到 login keychain"
 
-# 7. 设置 partition list（允许 codesign 无弹窗使用）
+# 7. 信任自签名证书用于代码签名
+security add-trusted-cert -p codeSign -k "$KEYCHAIN" "$CERT"
+echo "  已添加代码签名信任"
+
+# 8. 设置 partition list（允许 codesign 无弹窗使用）
 security set-key-partition-list \
     -S "apple-tool:,apple:" \
     -s -k "" \
     "$KEYCHAIN" \
     2>/dev/null || echo "  注意: set-key-partition-list 需要 keychain 密码为空或手动确认"
 
-# 8. 验证证书
+# 9. 验证证书
 echo ""
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$CERT_NAME"; then
     echo "证书 '$CERT_NAME' 创建成功！"
