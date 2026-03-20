@@ -38,3 +38,4 @@ config.json
 *.pem
 *.p12
 *.key
+__pycache__/
