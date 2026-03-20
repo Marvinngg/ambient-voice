@@ -17,6 +17,9 @@ enum TextInjector {
         pb.clearContents()
         pb.setString(text, forType: .string)
 
+        // 记录粘贴后的 changeCount，用于恢复时判断剪贴板是否被其他操作修改
+        let changeCountAfterPaste = pb.changeCount
+
         // 模拟 Cmd+V 粘贴
         let source = CGEventSource(stateID: .hidSystemState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
@@ -31,7 +34,7 @@ enum TextInjector {
         // 延迟恢复剪贴板
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             // 只在剪贴板没被其他操作修改时恢复
-            if pb.changeCount == pb.changeCount, let saved = savedString {
+            if pb.changeCount == changeCountAfterPaste, let saved = savedString {
                 pb.clearContents()
                 pb.setString(saved, forType: .string)
             }
