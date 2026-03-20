@@ -23,6 +23,10 @@ server/.env
 # Claude Code
 .claude/
 
+# Datasets (too large, download separately)
+Datasets/
+server/eval/datasets/
+
 # Data (user-specific)
 *.jsonl
 *.offset

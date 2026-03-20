@@ -1,0 +1,28 @@
+[
+  {
+    "meeting" : "EN2002b",
+    "missRate" : 3.2874269485473633,
+    "falseAlarmRate" : 2.2385468482971191,
+    "speakerErrorRate" : 18.488492965698242,
+    "jer" : 47.749176025390625,
+    "detectedSpeakers" : 4,
+    "der" : 24.014467239379883,
+    "processingTime" : 14.084092140197754,
+    "rtfx" : 126.86994934082031,
+    "timings" : {
+      "totalInferenceSeconds" : 19.705947875976562,
+      "embeddingExtractionSeconds" : 12.92859935760498,
+      "modelDownloadSeconds" : 0.098356306552886963,
+      "modelCompilationSeconds" : 0.042152702808380127,
+      "audioLoadingSeconds" : 0.060960054397583008,
+      "segmentationSeconds" : 5.7192249298095703,
+      "speakerClusteringSeconds" : 1.058122992515564,
+      "totalProcessingSeconds" : 14.084092140197754
+    },
+    "chunksProcessed" : 1,
+    "groundTruthSpeakers" : 4,
+    "speakerFragmentation" : 1,
+    "latency90th" : 14.084092140197754,
+    "latency99th" : 14.084092140197754
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "eval_target": "WE MeetingSession.runFromFile() 端到端",
+  "pipeline": "SpeechAnalyzer(inputAudioFile) → FluidAudio(performCompleteDiarization) → alignTranscriptionWithDiarization → MeetingExporter",
+  "dataset": "AliMeeting Eval (far-field ch0)",
+  "n_files": 8,
+  "overall_cer": 39.99,
+  "avg_cer": 37.85,
+  "tool": "jiwer",
+  "results": [
+    {
+      "id": "R8001_M8004",
+      "cer": 51.69,
+      "n_segments": 122,
+      "n_speakers": 4,
+      "rtfx": 73.7,
+      "processing_time_s": 21.36,
+      "ref_chars": 12099,
+      "hyp_chars": 7056,
+      "gt_speakers": 4
+    },
+    {
+      "id": "R8003_M8001",
+      "cer": 33.68,
+      "n_segments": 143,
+      "n_speakers": 3,
+      "rtfx": 81.6,
+      "processing_time_s": 25.33,
+      "ref_chars": 11731,
+      "hyp_chars": 9168,
+      "gt_speakers": 4
+    },
+    {
+      "id": "R8007_M8010",
+      "cer": 62.07,
+      "n_segments": 152,
+      "n_speakers": 6,
+      "rtfx": 81,
+      "processing_time_s": 22.92,
+      "ref_chars": 17028,
+      "hyp_chars": 7349,
+      "gt_speakers": 4
+    },
+    {
+      "id": "R8007_M8011",
+      "cer": 38.48,
+      "n_segments": 127,
+      "n_speakers": 2,
+      "rtfx": 77.1,
+      "processing_time_s": 24.13,
+      "ref_chars": 12844,
+      "hyp_chars": 8916,
+      "gt_speakers": 4
+    },
+    {
+      "id": "R8008_M8013",
+      "cer": 37.03,
+      "n_segments": 181,
+      "n_speakers": 2,
+      "rtfx": 74,
+      "processing_time_s": 30.26,
+      "ref_chars": 10185,
+      "hyp_chars": 7778,
+      "gt_speakers": 3
+    },
+    {
+      "id": "R8009_M8018",
+      "cer": 24.22,
+      "n_segments": 109,
+      "n_speakers": 2,
+      "rtfx": 76.6,
+      "processing_time_s": 21.61,
+      "ref_chars": 9545,
+      "hyp_chars": 8436,
+      "gt_speakers": 2
+    },
+    {
+      "id": "R8009_M8019",
+      "cer": 30.89,
+      "n_segments": 141,
+      "n_speakers": 2,
+      "rtfx": 88.6,
+      "processing_time_s": 22.28,
+      "ref_chars": 9814,
+      "hyp_chars": 7793,
+      "gt_speakers": 2
+    },
+    {
+      "id": "R8009_M8020",
+      "cer": 24.73,
+      "n_segments": 129,
+      "n_speakers": 1,
+      "rtfx": 85.1,
+      "processing_time_s": 22.45,
+      "ref_chars": 10091,
+      "hyp_chars": 8925,
+      "gt_speakers": 2
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "processingTime" : 17.850090026855469,
+    "detectedSpeakers" : 5,
+    "chunksProcessed" : 1,
+    "latency90th" : 17.850090026855469,
+    "missRate" : 1.9613298177719116,
+    "latency99th" : 17.850090026855469,
+    "rtfx" : 130.77626037597656,
+    "timings" : {
+      "modelCompilationSeconds" : 0.043399788439273834,
+      "totalInferenceSeconds" : 23.71519660949707,
+      "segmentationSeconds" : 5.9977221488952637,
+      "totalProcessingSeconds" : 17.850090026855469,
+      "speakerClusteringSeconds" : 1.7978739738464355,
+      "audioLoadingSeconds" : 0.051793932914733887,
+      "embeddingExtractionSeconds" : 15.919599533081055,
+      "modelDownloadSeconds" : 0.10126616805791855
+    },
+    "speakerErrorRate" : 5.6214914321899414,
+    "falseAlarmRate" : 3.4067022800445557,
+    "groundTruthSpeakers" : 4,
+    "der" : 10.989522933959961,
+    "meeting" : "ES2004c",
+    "jer" : 32.316707611083984,
+    "speakerFragmentation" : 1
+  }
+]

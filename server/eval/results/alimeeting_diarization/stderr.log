@@ -1,0 +1,40 @@
+[Profiling] Segmentation timings: windows=787 prepareTotal=57.44ms (perWindow=0.0730ms) predictionTotal=4059.42ms (perWindow=5.1581ms)
+[Profiling] Embedding timings: fbankTotal=810.15ms (perWindow=1.029ms), maskPrepTotal=4.28ms (perEval=0.002ms), resampleTotal=0.18ms (perValid=0.000ms), embeddingTotal=9919.06ms (perValid=4.201ms), pldaTotal=55.76ms (perValid=0.024ms), batches(fbank=25, plda=74)
+[14:13:37.234] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8001_M8004_sys.rttm
+[Profiling] Segmentation timings: windows=1034 prepareTotal=69.28ms (perWindow=0.0670ms) predictionTotal=4973.22ms (perWindow=4.8097ms)
+[Profiling] Embedding timings: fbankTotal=1028.08ms (perWindow=0.994ms), maskPrepTotal=5.73ms (perEval=0.002ms), resampleTotal=0.21ms (perValid=0.000ms), embeddingTotal=12824.19ms (perValid=4.134ms), pldaTotal=58.65ms (perValid=0.019ms), batches(fbank=33, plda=97)
+[14:13:53.218] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8003_M8001_sys.rttm
+[Profiling] Segmentation timings: windows=929 prepareTotal=53.86ms (perWindow=0.0580ms) predictionTotal=4336.87ms (perWindow=4.6683ms)
+[Profiling] Embedding timings: fbankTotal=955.71ms (perWindow=1.029ms), maskPrepTotal=5.07ms (perEval=0.002ms), resampleTotal=0.19ms (perValid=0.000ms), embeddingTotal=11502.17ms (perValid=4.127ms), pldaTotal=62.79ms (perValid=0.023ms), batches(fbank=30, plda=88)
+[14:14:07.454] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8007_M8010_sys.rttm
+[Profiling] Segmentation timings: windows=931 prepareTotal=67.08ms (perWindow=0.0720ms) predictionTotal=4655.86ms (perWindow=5.0009ms)
+[Profiling] Embedding timings: fbankTotal=973.45ms (perWindow=1.046ms), maskPrepTotal=4.39ms (perEval=0.002ms), resampleTotal=0.19ms (perValid=0.000ms), embeddingTotal=11597.00ms (perValid=4.152ms), pldaTotal=64.86ms (perValid=0.023ms), batches(fbank=30, plda=88)
+[14:14:21.786] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8007_M8011_sys.rttm
+[Profiling] Segmentation timings: windows=1120 prepareTotal=111.71ms (perWindow=0.0997ms) predictionTotal=5662.73ms (perWindow=5.0560ms)
+[Profiling] Embedding timings: fbankTotal=1213.91ms (perWindow=1.084ms), maskPrepTotal=6.84ms (perEval=0.002ms), resampleTotal=0.27ms (perValid=0.000ms), embeddingTotal=14088.68ms (perValid=4.193ms), pldaTotal=70.53ms (perValid=0.021ms), batches(fbank=35, plda=105)
+[14:14:39.462] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8008_M8013_sys.rttm
+[Profiling] Segmentation timings: windows=828 prepareTotal=56.90ms (perWindow=0.0687ms) predictionTotal=4064.03ms (perWindow=4.9083ms)
+[Profiling] Embedding timings: fbankTotal=864.20ms (perWindow=1.044ms), maskPrepTotal=4.22ms (perEval=0.002ms), resampleTotal=0.19ms (perValid=0.000ms), embeddingTotal=10319.09ms (perValid=4.154ms), pldaTotal=48.83ms (perValid=0.020ms), batches(fbank=26, plda=78)
+[14:14:52.171] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8009_M8018_sys.rttm
+[Profiling] Segmentation timings: windows=987 prepareTotal=70.68ms (perWindow=0.0716ms) predictionTotal=5028.53ms (perWindow=5.0948ms)
+[Profiling] Embedding timings: fbankTotal=1042.27ms (perWindow=1.056ms), maskPrepTotal=5.51ms (perEval=0.002ms), resampleTotal=0.27ms (perValid=0.000ms), embeddingTotal=12356.78ms (perValid=4.173ms), pldaTotal=62.57ms (perValid=0.021ms), batches(fbank=31, plda=93)
+[14:15:07.676] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8009_M8019_sys.rttm
+[Profiling] Segmentation timings: windows=956 prepareTotal=58.92ms (perWindow=0.0616ms) predictionTotal=4562.11ms (perWindow=4.7721ms)
+[Profiling] Embedding timings: fbankTotal=955.32ms (perWindow=0.999ms), maskPrepTotal=4.36ms (perEval=0.002ms), resampleTotal=0.17ms (perValid=0.000ms), embeddingTotal=11788.10ms (perValid=4.110ms), pldaTotal=51.98ms (perValid=0.018ms), batches(fbank=30, plda=90)
+[14:15:22.379] [ERROR] [FluidAudio.Process] Failed to compute offline metrics: RTTM file not found at /Users/marvin/antigravity/we/server/eval/results/alimeeting_diarization/R8009_M8020_sys.rttm
+[Profiling] Segmentation timings: windows=787 prepareTotal=62.24ms (perWindow=0.0791ms) predictionTotal=4174.41ms (perWindow=5.3042ms)
+[Profiling] Embedding timings: fbankTotal=793.17ms (perWindow=1.008ms), maskPrepTotal=4.39ms (perEval=0.002ms), resampleTotal=0.17ms (perValid=0.000ms), embeddingTotal=9855.29ms (perValid=4.174ms), pldaTotal=50.80ms (perValid=0.022ms), batches(fbank=25, plda=74)
+[Profiling] Segmentation timings: windows=1034 prepareTotal=75.06ms (perWindow=0.0726ms) predictionTotal=5092.27ms (perWindow=4.9248ms)
+[Profiling] Embedding timings: fbankTotal=1073.55ms (perWindow=1.038ms), maskPrepTotal=4.91ms (perEval=0.002ms), resampleTotal=0.27ms (perValid=0.000ms), embeddingTotal=12856.11ms (perValid=4.144ms), pldaTotal=60.90ms (perValid=0.020ms), batches(fbank=33, plda=97)
+[Profiling] Segmentation timings: windows=929 prepareTotal=82.36ms (perWindow=0.0887ms) predictionTotal=4770.66ms (perWindow=5.1353ms)
+[Profiling] Embedding timings: fbankTotal=975.86ms (perWindow=1.050ms), maskPrepTotal=5.53ms (perEval=0.002ms), resampleTotal=0.21ms (perValid=0.000ms), embeddingTotal=11661.69ms (perValid=4.184ms), pldaTotal=57.91ms (perValid=0.021ms), batches(fbank=30, plda=88)
+[Profiling] Segmentation timings: windows=931 prepareTotal=57.00ms (perWindow=0.0612ms) predictionTotal=4303.85ms (perWindow=4.6228ms)
+[Profiling] Embedding timings: fbankTotal=920.59ms (perWindow=0.989ms), maskPrepTotal=5.21ms (perEval=0.002ms), resampleTotal=0.20ms (perValid=0.000ms), embeddingTotal=11482.08ms (perValid=4.111ms), pldaTotal=54.33ms (perValid=0.019ms), batches(fbank=30, plda=88)
+[Profiling] Segmentation timings: windows=1120 prepareTotal=64.41ms (perWindow=0.0575ms) predictionTotal=5136.05ms (perWindow=4.5858ms)
+[Profiling] Embedding timings: fbankTotal=1120.65ms (perWindow=1.001ms), maskPrepTotal=5.83ms (perEval=0.002ms), resampleTotal=0.25ms (perValid=0.000ms), embeddingTotal=13804.16ms (perValid=4.108ms), pldaTotal=63.09ms (perValid=0.019ms), batches(fbank=35, plda=105)
+[Profiling] Segmentation timings: windows=828 prepareTotal=57.00ms (perWindow=0.0688ms) predictionTotal=4114.56ms (perWindow=4.9693ms)
+[Profiling] Embedding timings: fbankTotal=847.83ms (perWindow=1.024ms), maskPrepTotal=4.19ms (perEval=0.002ms), resampleTotal=0.18ms (perValid=0.000ms), embeddingTotal=10289.70ms (perValid=4.142ms), pldaTotal=45.40ms (perValid=0.018ms), batches(fbank=26, plda=78)
+[Profiling] Segmentation timings: windows=987 prepareTotal=63.75ms (perWindow=0.0646ms) predictionTotal=4539.75ms (perWindow=4.5995ms)
+[Profiling] Embedding timings: fbankTotal=986.03ms (perWindow=0.999ms), maskPrepTotal=4.25ms (perEval=0.001ms), resampleTotal=0.20ms (perValid=0.000ms), embeddingTotal=12132.10ms (perValid=4.097ms), pldaTotal=56.01ms (perValid=0.019ms), batches(fbank=31, plda=93)
+[Profiling] Segmentation timings: windows=956 prepareTotal=57.45ms (perWindow=0.0601ms) predictionTotal=4597.76ms (perWindow=4.8094ms)
+[Profiling] Embedding timings: fbankTotal=953.15ms (perWindow=0.997ms), maskPrepTotal=4.55ms (perEval=0.002ms), resampleTotal=0.19ms (perValid=0.000ms), embeddingTotal=11857.95ms (perValid=4.135ms), pldaTotal=56.14ms (perValid=0.020ms), batches(fbank=30, plda=90)

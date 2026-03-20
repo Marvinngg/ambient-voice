@@ -1,0 +1,28 @@
+[
+  {
+    "latency99th" : 6.2080879211425781,
+    "latency90th" : 6.2080879211425781,
+    "der" : 17.72282600402832,
+    "processingTime" : 6.2080879211425781,
+    "chunksProcessed" : 1,
+    "groundTruthSpeakers" : 4,
+    "detectedSpeakers" : 6,
+    "timings" : {
+      "modelDownloadSeconds" : 0.080867506563663483,
+      "speakerClusteringSeconds" : 0.24059700965881348,
+      "audioLoadingSeconds" : 0.019554018974304199,
+      "modelCompilationSeconds" : 0.034657500684261322,
+      "segmentationSeconds" : 2.1719720363616943,
+      "totalInferenceSeconds" : 8.3320550918579102,
+      "totalProcessingSeconds" : 6.2080879211425781,
+      "embeddingExtractionSeconds" : 5.9194860458374023
+    },
+    "missRate" : 3.6109280586242676,
+    "speakerFragmentation" : 1,
+    "rtfx" : 135.11943054199219,
+    "speakerErrorRate" : 11.115671157836914,
+    "meeting" : "IS1009a",
+    "falseAlarmRate" : 2.9962265491485596,
+    "jer" : 55.087028503417969
+  }
+]

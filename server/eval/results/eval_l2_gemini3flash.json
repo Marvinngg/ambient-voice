@@ -1,0 +1,432 @@
+{
+  "test_data": "/Users/marvin/.we/corrections.jsonl",
+  "test_type": "corrections",
+  "n_samples": 37,
+  "evaluations": [
+    {
+      "model": "gemini-3-flash",
+      "api": "openai",
+      "endpoint": "http://127.0.0.1:8045",
+      "n": 37,
+      "errors": 0,
+      "avg_cer_raw": 153.48,
+      "avg_cer_polished": 81.19,
+      "avg_delta_cer": 72.28,
+      "fix_rate": 78.4,
+      "break_rate": 18.9,
+      "identity_rate": 2.7,
+      "avg_latency_s": 2.294
+    }
+  ],
+  "details": {
+    "gemini-3-flash": [
+      {
+        "id": "corr_0",
+        "input": "我试一下修改的功能吧 ，看看能不能正确鉴定。",
+        "reference": "我来试试修改功能，看看能否正确监听。\n",
+        "polished": "我试一下修改功能，看看能不能正确识别。",
+        "cer_raw": 55.56,
+        "cer_polished": 38.89,
+        "delta_cer": 16.67,
+        "category": "fix",
+        "latency_s": 3.071
+      },
+      {
+        "id": "corr_1",
+        "input": "想修改改测试一下修改功能吧 ，可能你不能挺缺失点。",
+        "reference": "我想修改并测试一下修改功能，看看能不能准确识别。",
+        "polished": "想修改一下，测试下修改功能。可能你",
+        "cer_raw": 45.83,
+        "cer_polished": 62.5,
+        "delta_cer": -16.67,
+        "category": "break",
+        "latency_s": 2.349
+      },
+      {
+        "id": "corr_2",
+        "input": "我的理解就是嗯 ，我们观念不在于说是不是应用角度呢关键的角度是中要用一套。苹果原生的角度 ，因为这个层面在呃我们有利用好苹果已有的一些架构吧 ，因为像常有的一些文字的内容其实有很多都是据一些 Was来呢需要本地有一个比较高的内存负担就没有利用好这个苹果这个特性吧。",
+        "reference": "关注的核心不在于是否从应用角度出发，而在于能否利用一套基于苹果原生架构的方",
+        "polished": "我的理解是，我们的重点不在于是否从应用",
+        "cer_raw": 310.81,
+        "cer_polished": 86.49,
+        "delta_cer": 224.32,
+        "category": "fix",
+        "latency_s": 2.583
+      },
+      {
+        "id": "corr_3",
+        "input": "那所以因为这个角度会很好 ，所以我就想基于嗯苹果原生那个前没有去做这样一件事情 ，那那个角度比如说。语音入口是一个非常确定嘛 ，它相对于打字的一个效率其实是非常高的而这个是一个 w的角度外部角度大概说这些我觉得就 OK的那那一些是技术角度。技术角度比如说我们具具体到我们具持的一些架构设计吧 ，就是。优化呀 ，嗯通过优化然后通过呃原始的原始那个嗯。原是一个截屏功能吧 ，然后去做一个上下上下文的那个东西。",
+        "reference": "于这个优势，我想尝试在苹果原生框架下实现这一功能。语音入口的确定性很高，相",
+        "polished": "因为这个切入点很好，所以我想基于",
+        "cer_raw": 491.89,
+        "cer_polished": 97.3,
+        "delta_cer": 394.59,
+        "category": "fix",
+        "latency_s": 1.996
+      },
+      {
+        "id": "corr_4",
+        "input": "因为最开始其实我是给了你一个 skile，那其实你我 skile再去开发我们的歌一个平平平时节。屏的一个功能吧",
+        "reference": "因为最开始其实是给了你一个技能，让你去开发我们的一个常规功能。",
+        "polished": "最开始我给了你一个 skill，现在你可以利用",
+        "cer_raw": 96.77,
+        "cer_polished": 74.19,
+        "delta_cer": 22.58,
+        "category": "fix",
+        "latency_s": 2.113
+      },
+      {
+        "id": "corr_5",
+        "input": "那当然说我们参加过程中还有一些呃具体的考量点 ，那就比如说。嗯就是我们。这个数据飞轮怎么设计就是因为我们还有我们的标题是越用越好用吧 ，其实就是涉及我们好多那些模型微调层面的微调成就可以选了呃两种方式去做嘛就是这么一个逻辑。然后就是我觉得你可以多回顾一下我们前面的一个整个的一个开发过程就是具体我们之间是怎么协作用用了哪些比如说可以写进去的一个技巧或者说步骤吧。",
+        "reference": "我们的核心逻辑是“越用越好用”，这涉及多种模型微调技术，目前主要有两种方式可",
+        "polished": "*   *Segment 1:* \"",
+        "cer_raw": 418.42,
+        "cer_polished": 100.0,
+        "delta_cer": 318.42,
+        "category": "fix",
+        "latency_s": 1.99
+      },
+      {
+        "id": "corr_6",
+        "input": "我觉得我说的挺清晰的吧 ，我觉得就是。整个设计整个应用的网另一个就是整个系统的架构 ，那另一个就是具体某一。个功能开放我用到的这个 skileOK。",
+        "reference": "用，二是系统架构，三是某个具体功能模块中使用了技能（Skill）的开发方式。",
+        "polished": "我觉得我表达得挺清晰的。一个是整个应用",
+        "cer_raw": 163.16,
+        "cer_polished": 97.37,
+        "delta_cer": 65.79,
+        "category": "fix",
+        "latency_s": 2.09
+      },
+      {
+        "id": "corr_7",
+        "input": "就是就是嗯你前面那个 note点那个寄到的那个。 skill的和 skile同一个某但是 skil的写卡知识位号码或者说你要遇到 refence下面。",
+        "reference": "l\"同级文件夹下，但\"skill\"支持；或者说，你要去参考下面的内容。",
+        "polished": "你前面 note 记录的那个，skill 和 scale",
+        "cer_raw": 182.86,
+        "cer_polished": 97.14,
+        "delta_cer": 85.71,
+        "category": "fix",
+        "latency_s": 2.08
+      },
+      {
+        "id": "corr_8",
+        "input": "我就看一个就是整体的一个他内部的一个嗯逻辑架构吧 ，看看和我预想的是不是一样的。",
+        "reference": "，确认是否与我预想的一致。",
+        "polished": "我主要看下它内部的整体逻辑架构",
+        "cer_raw": 253.85,
+        "cer_polished": 115.38,
+        "delta_cer": 138.46,
+        "category": "fix",
+        "latency_s": 2.198
+      },
+      {
+        "id": "corr_9",
+        "input": "我们不是共 12那才没有用吗另外确认保按模式肯定不行了。",
+        "reference": "❯ 我们不是共识没用了。另外，确认保险模式肯定不行。",
+        "polished": "我们不是共识，那才没有用吗",
+        "cer_raw": 50.0,
+        "cer_polished": 73.08,
+        "delta_cer": -23.08,
+        "category": "break",
+        "latency_s": 2.0
+      },
+      {
+        "id": "corr_10",
+        "input": "就是。这个东西最最终是要作为一个项目去。或者物质出去的这么一个概念 ，然后他能够自动的去运气非要这个",
+        "reference": "为一个项目发布部署出去的概念，它能自动去运行也能对话。",
+        "polished": "最终，这个东西是要作为一个项目部署出去的",
+        "cer_raw": 129.63,
+        "cer_polished": 96.3,
+        "delta_cer": 33.33,
+        "category": "fix",
+        "latency_s": 2.187
+      },
+      {
+        "id": "corr_11",
+        "input": "先这样先把第一部分先实际先就做一个改的就是 sones gop of，然后就就改个。s然后代码也要跟着",
+        "reference": "❯ 先将第一部分 GOP 格式，同时同步修改相关代码。",
+        "polished": "先这样，先把第一部分实际做一个",
+        "cer_raw": 151.85,
+        "cer_polished": 88.89,
+        "delta_cer": 62.96,
+        "category": "fix",
+        "latency_s": 2.117
+      },
+      {
+        "id": "corr_12",
+        "input": "你的 ISS学习没有写清楚就是啊丢进去的是什么数据吧就是你一。啊 ，我筛选的时候你是丢什么样的数据给他的最后比如说到学习的时候你是丢什么样的数据给他他是通过工具去去妈那些数据呢还是怎么样 ？我觉得这个事也需要说清楚",
+        "reference": "❯ 先将第一部分sonnet改成opus，同时同步修改相关代码。您的 ISS 学习描述不够清晰，需要明确说明输入的数据类型。具体而言，在筛选和训练过程中，您向模型提供了哪些数据？这些数据的获取是通过何种工具或方式完成的？我认为这一点也需要交代清楚。",
+        "polished": "你的 ISS 学习部分没有写清楚。具体",
+        "cer_raw": 87.9,
+        "cer_polished": 91.13,
+        "delta_cer": -3.23,
+        "category": "break",
+        "latency_s": 2.052
+      },
+      {
+        "id": "corr_13",
+        "input": "看一下 Cloudcode自带的 outomemory吧。",
+        "reference": "❯ 看一下 Cl Code 自带的 Outmemory 吧。",
+        "polished": "看一下 Cloud Code 自带的 Auto Memory",
+        "cer_raw": 33.33,
+        "cer_polished": 40.0,
+        "delta_cer": -6.67,
+        "category": "break",
+        "latency_s": 2.12
+      },
+      {
+        "id": "corr_14",
+        "input": "就是我们的这套设计怎么和这个 Autumem结合 ？",
+        "reference": "❯ 看一下 Claude Code 自带的 automemory 吧。就是如何将这套设计与 Au 相结合？",
+        "polished": "就是我们的这套设计，怎么和",
+        "cer_raw": 84.91,
+        "cer_polished": 88.68,
+        "delta_cer": -3.77,
+        "category": "break",
+        "latency_s": 2.113
+      },
+      {
+        "id": "corr_15",
+        "input": "大概知道了那这里面有个区分吧 ，就是因为 clob甚至作用那个主机的一个一个项目的那这个项目。我们可能有其他的一些 member还有一个系统的 member。",
+        "reference": "❯ 大概明白了，这里有个区别：因为 CLaw 是主机上的一个具体项目，但是",
+        "polished": "大概知道了。这里面有一个区分：因为 Cloud",
+        "cer_raw": 172.97,
+        "cer_polished": 70.27,
+        "delta_cer": 102.7,
+        "category": "fix",
+        "latency_s": 2.157
+      },
+      {
+        "id": "corr_16",
+        "input": "嗯。那这就有问题就是啊 ，像有一些自动化的记忆的话 ，可能会把他认为一个项目不。而不是把它认为一个就是去执行那个记者的想法 ，可能会把它认为一个就需要去携带码或者各种各样的一个具体的项目。就是我认为 outmemer会怎么写",
+        "reference": "这就有问题了。比如一些自动化记忆，可能会将其视为一个待执行的项目，而不是记",
+        "polished": "那这里就有一个问题：像一些自动化的",
+        "cer_raw": 237.84,
+        "cer_polished": 81.08,
+        "delta_cer": 156.76,
+        "category": "fix",
+        "latency_s": 1.929
+      },
+      {
+        "id": "corr_17",
+        "input": "嗯 ，另外就是为什么为什么上面那些 SDP要用它不会产生 autumemory呢 ？这是我不理解的。",
+        "reference": "使用它不会产生自动内存（automemory）？",
+        "polished": "另外，为什么上面那些 SDP 不会产生 out of",
+        "cer_raw": 158.33,
+        "cer_polished": 104.17,
+        "delta_cer": 54.17,
+        "category": "fix",
+        "latency_s": 2.291
+      },
+      {
+        "id": "corr_18",
+        "input": "倾向于第一个方向。",
+        "reference": "❯ 倾向于第一种方案。",
+        "polished": "倾向于第一个方向。",
+        "cer_raw": 36.36,
+        "cer_polished": 36.36,
+        "delta_cer": 0.0,
+        "category": "identity",
+        "latency_s": 1.966
+      },
+      {
+        "id": "corr_19",
+        "input": "另外还有一个吧 ，就是这个 automery和跟比如说我们做的一些就是像那种我们我们这个机制具体和怎么和他解。合就比如说我们在日常的一些他那一些自动运营的过程中怎么样的去就有一些价价值的信息怎么样就是度入到 outomemor这是一个问题吧。",
+        "reference": "，在日常的自动运营过程中，如何将价值信息导入，这也是一个需要解决的问题。",
+        "polished": "另外还有一个点，就是 AutoMemory 机制具体",
+        "cer_raw": 280.56,
+        "cer_polished": 97.22,
+        "delta_cer": 183.33,
+        "category": "fix",
+        "latency_s": 2.265
+      },
+      {
+        "id": "corr_20",
+        "input": "另外比如说第三部可能你是要让模型去 fitch的那 fitch的话 ，他是没要再处理一遍这个内容啊。",
+        "reference": "进行处理；而 Fitch 本身并不需要应该不需要再对该内容进行二次处理。",
+        "polished": "另外，比如第三步你是要让模型去 fetch",
+        "cer_raw": 116.67,
+        "cer_polished": 97.22,
+        "delta_cer": 19.44,
+        "category": "fix",
+        "latency_s": 2.104
+      },
+      {
+        "id": "corr_21",
+        "input": "那就是确认我们第一步过去的自己摘药是准确的让嗯海昆模型去正确的去识别吧。",
+        "reference": "❯ 内置工具没问题，我们不做操作，即确认我们第一步中“过去”的摘要是准确的，并让",
+        "polished": "那就是确认我们第一步过去的摘要是准确的",
+        "cer_raw": 95.0,
+        "cer_polished": 60.0,
+        "delta_cer": 35.0,
+        "category": "fix",
+        "latency_s": 2.115
+      },
+      {
+        "id": "corr_22",
+        "input": "然后然后因为你后面因为除了这样 ，你可能还要就后面可能还会做一个那种给他一个信息吧 ，对吧 ，如他。相应被选择出来的信息 ，那保证这个信息准确其实我们做的就这些",
+        "reference": "信息，即确保被选出的信息是准确的。实际上，我们所做的就是这些。确认这两个数",
+        "polished": "然后，除了这些，你后面可能还需要提供一些",
+        "cer_raw": 197.3,
+        "cer_polished": 94.59,
+        "delta_cer": 102.7,
+        "category": "fix",
+        "latency_s": 2.119
+      },
+      {
+        "id": "corr_23",
+        "input": "好的最终的降至结果也放到了哪里 ？",
+        "reference": "❯ 好的，最终结果已存放于何处？",
+        "polished": "好的，最终的降职结果放到哪里",
+        "cer_raw": 81.25,
+        "cer_polished": 68.75,
+        "delta_cer": 12.5,
+        "category": "fix",
+        "latency_s": 5.457
+      },
+      {
+        "id": "corr_24",
+        "input": "啊好的 ，如果那比如说我想把。这个这样制的结果比如说做为一个呃类似于像 skill或者说一些类似于。应用。那你觉得我需要准备哪些数据或者说你需要我准备哪些提供哪些工具 ？",
+        "reference": "❯ 如果我想将上述生成的结果作为技能（Skill）或类似的应用来使用，您认为我需要",
+        "polished": "好的。如果我想把这些结果作为一个类似于 Skill",
+        "cer_raw": 163.41,
+        "cer_polished": 78.05,
+        "delta_cer": 85.37,
+        "category": "fix",
+        "latency_s": 3.4
+      },
+      {
+        "id": "corr_25",
+        "input": "用肯定是用 cloud con的 spin。",
+        "reference": "❯ 使用 Cl 的 Spin 功能。",
+        "polished": "肯定是用 Cloud Run 的 spin up。",
+        "cer_raw": 83.33,
+        "cer_polished": 72.22,
+        "delta_cer": 11.11,
+        "category": "fix",
+        "latency_s": 2.219
+      },
+      {
+        "id": "corr_26",
+        "input": "然后你说一下就是啊 ，你需要这个 skile，如果弄成这个词样 ，你具体比如说啊 ，我需要准备哪些数据应该接口需要怎么做 ？给我一个大致的一个方案吧。",
+        "reference": "skill功能。请说明您需要的技能（skill）的具体形式。例如，若需实现该功能，请",
+        "polished": "要实现语音转写后处理（修正",
+        "cer_raw": 154.76,
+        "cer_polished": 97.62,
+        "delta_cer": 57.14,
+        "category": "fix",
+        "latency_s": 2.713
+      },
+      {
+        "id": "corr_27",
+        "input": "有具体比如说那个筛选文章 ，我看完只返回那个数字那什么决定是哪一篇文章呢 ？这个我没有看。",
+        "reference": "❯ 看一下代码机制。在心跳机制中比如筛选文章时，我只返回一个数字，这代表哪篇文",
+        "polished": "具体来说，比如筛选文章，如果",
+        "cer_raw": 102.56,
+        "cer_polished": 82.05,
+        "delta_cer": 20.51,
+        "category": "fix",
+        "latency_s": 2.166
+      },
+      {
+        "id": "corr_28",
+        "input": "那些设计里面还有一些只改了一些架构吧 ，其他的有些对应那些嗯没有改就整个。新闻整整体逻辑要一举。",
+        "reference": "❯ 这些设计中，部分仅调整了架构，其余内容未作改动，比如类人，没有加上相应的导",
+        "polished": "那些设计里有一些只改了架构，其他的",
+        "cer_raw": 105.13,
+        "cer_polished": 76.92,
+        "delta_cer": 28.21,
+        "category": "fix",
+        "latency_s": 2.086
+      },
+      {
+        "id": "corr_29",
+        "input": "一个是没台卷的照照一卷的时候嗯制造工具甚至成的呃完善一些 ，第二个就是。嗯。在运行的过程中我们可以去如果有学员可以去找工具像有心跳机制方面一个检验工具那个也是可也可以是造工具。",
+        "reference": "❯ 可以，一是没有台账，建立台账时制造工具应更加完善；二是运行过程中，若有学员",
+        "polished": "一个是目前造工具的时候，要把制造工具的过程完善",
+        "cer_raw": 187.18,
+        "cer_polished": 82.05,
+        "delta_cer": 105.13,
+        "category": "fix",
+        "latency_s": 2.22
+      },
+      {
+        "id": "corr_30",
+        "input": "我的角度是 A是在执行的时候就是有些用一些什么 bach工具或者一些工具是用的。很好的达到一个效果或者说有些时候可能为了一起那。就用本地的工具 ，比如说 bash工具达到一个合格的单等这些肯定不满意的那其实就是如果为了更好的输出 ，他可以去自己去找一个工具吧 ，我的角度的找到",
+        "reference": "❯ 从我的角度来看，A 在执行过程中确实会调用一些 Bash 工具或其他本地工具，以达",
+        "polished": "我的观点是，AI在执行任务时，",
+        "cer_raw": 276.74,
+        "cer_polished": 81.4,
+        "delta_cer": 195.35,
+        "category": "fix",
+        "latency_s": 2.064
+      },
+      {
+        "id": "corr_31",
+        "input": "就是 skill的相关是要去做这个 MCP server给他用吧 ，而且我比较关注一些数。据几个质量最好是比较前沿比较一手的那些东西吧 ，或者比如说 AKCr这样一个方式吧。",
+        "reference": "我的投资skill还没有想要的mcp工具集，关于 Skill 的集成，主要是需要构建一个 MCP Server 供其使用。此外，我更关注数据源中质量最高、最前沿且一手的信息，例如通过 AKCshare这样的方式来获取。",
+        "polished": "关于 Skill 相关的部分，是要做一个 MCP server",
+        "cer_raw": 70.64,
+        "cer_polished": 78.9,
+        "delta_cer": -8.26,
+        "category": "break",
+        "latency_s": 2.095
+      },
+      {
+        "id": "corr_32",
+        "input": "类似于这个文档吧 ，其实就是直接把一个 skile转成类似于我这样的一个 cloud。",
+        "reference": "❯ 这就像把技能（skill）直接转换成类似我这样的 一样。",
+        "polished": "类似于这个文档，其实就是直接把一个",
+        "cer_raw": 100.0,
+        "cer_polished": 90.0,
+        "delta_cer": 10.0,
+        "category": "fix",
+        "latency_s": 2.24
+      },
+      {
+        "id": "corr_33",
+        "input": "然后还有就是。还有一些心心跳机制吧 ，还有一些比如说嗯。学习的类这样的类似的",
+        "reference": "技能是需要被使用的。此外，还有心跳机制以及学习类等类似功能。 继续共识",
+        "polished": "此外，还有心跳机制，以及一些学习类",
+        "cer_raw": 100.0,
+        "cer_polished": 68.57,
+        "delta_cer": 31.43,
+        "category": "fix",
+        "latency_s": 1.924
+      },
+      {
+        "id": "corr_34",
+        "input": "其实很多的通过一些把一些分装为一个 COI工具吧。那这个角度相比我们那些 MCP自动化就。是会考虑的更好一点 ，那比如说你去就去找一下这方面的内容吧",
+        "reference": "工具。从这一角度看，相比我们的 MCP 自动化方案，COI",
+        "polished": "其实很多是通过将一些功能封装为 CLI",
+        "cer_raw": 203.45,
+        "cer_polished": 89.66,
+        "delta_cer": 113.79,
+        "category": "fix",
+        "latency_s": 2.156
+      },
+      {
+        "id": "corr_35",
+        "input": "滚线吧就是我不仅要看一些具体的一些数据结果 ，我要看他的一些执行结果和。",
+        "reference": "❯ 好的，确认一下，你会怎么执行。我不仅要看具体的数据结果，还要关注其转录结果",
+        "polished": "管线吧，就是我不仅要看一些",
+        "cer_raw": 82.05,
+        "cer_polished": 84.62,
+        "delta_cer": -2.56,
+        "category": "break",
+        "latency_s": 2.025
+      },
+      {
+        "id": "corr_36",
+        "input": "我做一个类似于这样的研究吧 ，就是比如说像现在那的 A置 t这样的功能 ，他具体 agent背后比如说一些请提醒是这么做的。",
+        "reference": "❯ 你可以开展一项类似的研究，例如针对当前如\"Agent ”这类功能，具体探究其背后的",
+        "polished": "我想做一个类似的研究，探讨像 Agent 这样的功能",
+        "cer_raw": 116.28,
+        "cer_polished": 65.12,
+        "delta_cer": 51.16,
+        "category": "fix",
+        "latency_s": 2.119
+      }
+    ]
+  }
+}
