@@ -23,6 +23,14 @@ server/.env
 # Claude Code
 .claude/
 
+# Internal docs (not for public)
+PLAN.md
+WE入口进展.md
+build-in-public.md
+server/eval/EVAL_FRAMEWORK.md
+server/eval/FINETUNE_PIPELINE.md
+server/eval/We数据评估*.md
+
 # Datasets (too large, download separately)
 Datasets/
 server/eval/datasets/
