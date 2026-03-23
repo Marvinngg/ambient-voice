@@ -1,75 +1,84 @@
 import Foundation
 
-/// 会议转录导出器
-/// 支持导出为 Markdown 格式，保存到 ~/.we/meetings/
-@MainActor
-final class MeetingExporter {
+/// Exports meeting transcripts to Markdown format.
+/// Format: **[MM:SS]** Speaker N: text
+/// Files saved to ~/.we/meetings/{id}/transcript.md
+enum MeetingExporter {
 
-    /// 导出会议转录为 Markdown 文件
-    /// - Returns: 导出文件的 URL
-    static func exportMarkdown(
-        segments: [MeetingSegment],
-        duration: TimeInterval,
-        date: Date = Date()
-    ) -> URL? {
-        let dir = WEDataDir.url.appendingPathComponent("meetings")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        let fileName = "\(formatter.string(from: date)).md"
-        let fileURL = dir.appendingPathComponent(fileName)
-
-        var md = "# 会议记录\n\n"
-        md += "- 日期：\(formatDate(date))\n"
-        md += "- 时长：\(formatDuration(duration))\n"
-        md += "- 总字数：\(segments.reduce(0) { $0 + $1.text.count })\n\n"
-        md += "---\n\n"
-
-        var currentSpeaker = ""
-        for segment in segments where !segment.text.isEmpty {
-            let time = formatTimestamp(segment.startTime)
-            let speaker = segment.speakerLabel ?? "未知"
-
-            if speaker != currentSpeaker {
-                currentSpeaker = speaker
-                md += "\n### \(speaker)\n\n"
-            }
-
-            md += "`\(time)` \(segment.text)\n\n"
+    /// Export a meeting to Markdown and save to disk.
+    ///
+    /// - Parameter meeting: The meeting to export.
+    /// - Returns: The file path of the exported Markdown, or nil on failure.
+    @discardableResult
+    static func export(_ meeting: Meeting) -> String? {
+        guard !meeting.segments.isEmpty else {
+            DebugLog.log(.meeting, "No segments to export for meeting \(meeting.id)")
+            return nil
         }
 
+        let markdown = generateMarkdown(meeting)
+
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".we/meetings/\(meeting.id)")
         do {
-            try md.write(to: fileURL, atomically: true, encoding: .utf8)
-            Logger.log("Meeting", "Exported to \(fileURL.lastPathComponent)")
-            return fileURL
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
-            Logger.log("Meeting", "Export failed: \(error)")
+            DebugLog.log(.meeting, "Failed to create meeting directory: \(error)", level: .error)
+            return nil
+        }
+
+        let url = dir.appendingPathComponent("transcript.md")
+        do {
+            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            DebugLog.log(.meeting, "Exported meeting \(meeting.id) to \(url.path)")
+            return url.path
+        } catch {
+            DebugLog.log(.meeting, "Failed to write transcript: \(error)", level: .error)
             return nil
         }
     }
 
-    // MARK: - 格式化
+    /// Generate Markdown content from a meeting.
+    static func generateMarkdown(_ meeting: Meeting) -> String {
+        var lines: [String] = []
+
+        // Header
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let dateStr = formatter.string(from: meeting.startDate)
+
+        lines.append("# Meeting — \(dateStr)")
+        lines.append("")
+        lines.append("Duration: \(meeting.formattedDuration)")
+        lines.append("Segments: \(meeting.segments.count)")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        // Segments
+        for segment in meeting.segments where segment.isFinal {
+            let timestamp = formatTimestamp(segment.timestamp)
+            let speaker = "Speaker \(segment.speakerIndex + 1)"
+            lines.append("**[\(timestamp)]** \(speaker): \(segment.text)")
+            lines.append("")
+        }
+
+        // Footer
+        if !meeting.audioChunkPaths.isEmpty {
+            lines.append("---")
+            lines.append("")
+            lines.append("Audio chunks: \(meeting.audioChunkPaths.count)")
+            for path in meeting.audioChunkPaths {
+                let filename = URL(fileURLWithPath: path).lastPathComponent
+                lines.append("- `\(filename)`")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
 
     private static func formatTimestamp(_ seconds: TimeInterval) -> String {
-        let m = Int(seconds) / 60
-        let s = Int(seconds) % 60
-        return String(format: "%02d:%02d", m, s)
-    }
-
-    private static func formatDuration(_ seconds: TimeInterval) -> String {
-        let h = Int(seconds) / 3600
-        let m = (Int(seconds) % 3600) / 60
-        let s = Int(seconds) % 60
-        if h > 0 {
-            return String(format: "%d小时%d分%d秒", h, m, s)
-        }
-        return String(format: "%d分%d秒", m, s)
-    }
-
-    private static func formatDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy年M月d日 HH:mm"
-        return f.string(from: date)
+        let total = Int(seconds)
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }
