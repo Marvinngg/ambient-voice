@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# 双路线并行蒸馏 + 合并 + 训练
-# 用法: ./run_distill.sh --gemini-key <key> [--voice-history <path>] [--corrections <path>]
+# Gemini 蒸馏 + 合并
+# 用法: ./run_distill.sh --gemini-key <key> [--dictionary <path>] [--voice-history <path>] [--corrections <path>]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -12,12 +12,14 @@ WORK_DIR="${PROJECT_DIR}/workdir/$(date +%Y%m%d-%H%M%S)"
 VOICE_HISTORY="${HOME}/.we/voice-history.jsonl"
 CORRECTIONS="${HOME}/.we/corrections.jsonl"
 GEMINI_KEY=""
+DICTIONARY=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --gemini-key) GEMINI_KEY="$2"; shift 2 ;;
         --voice-history) VOICE_HISTORY="$2"; shift 2 ;;
         --corrections) CORRECTIONS="$2"; shift 2 ;;
+        --dictionary) DICTIONARY="$2"; shift 2 ;;
         *) echo "Unknown: $1"; exit 1 ;;
     esac
 done
@@ -27,41 +29,38 @@ if [ -z "$GEMINI_KEY" ]; then
     exit 1
 fi
 
+# 默认词典路径
+if [ -z "$DICTIONARY" ] && [ -f "${HOME}/.we/dictionary.json" ]; then
+    DICTIONARY="${HOME}/.we/dictionary.json"
+fi
+
 mkdir -p "$WORK_DIR"
 echo "Work dir: $WORK_DIR"
 echo "Voice history: $VOICE_HISTORY"
 echo ""
 
-# ========== 1. 双路线并行 ==========
-echo "=== Starting dual-track distillation ==="
+# ========== 1. Gemini 蒸馏 ==========
+echo "=== Starting Gemini distillation ==="
 
-# 路线 A: Whisper
-echo "[A] Starting Whisper distillation..."
-python3 "${PROJECT_DIR}/gen_distill_whisper.py" \
-    --input "$VOICE_HISTORY" \
-    --output "${WORK_DIR}/pairs_whisper.jsonl" \
-    --model-size large-v3 &
-PID_A=$!
+GEMINI_ARGS=(
+    --input "$VOICE_HISTORY"
+    --output "${WORK_DIR}/pairs_gemini.jsonl"
+    --api-key "$GEMINI_KEY"
+)
+if [ -n "$DICTIONARY" ] && [ -f "$DICTIONARY" ]; then
+    GEMINI_ARGS+=(--dictionary "$DICTIONARY")
+    echo "Using dictionary: $DICTIONARY"
+fi
 
-# 路线 B: Gemini
-echo "[B] Starting Gemini distillation..."
-python3 "${PROJECT_DIR}/gen_distill_gemini.py" \
-    --input "$VOICE_HISTORY" \
-    --output "${WORK_DIR}/pairs_gemini.jsonl" \
-    --api-key "$GEMINI_KEY" &
-PID_B=$!
-
-# 等待两条路线完成
-echo "Waiting for both tracks..."
-wait $PID_A && echo "[A] Whisper done" || echo "[A] Whisper failed"
-wait $PID_B && echo "[B] Gemini done" || echo "[B] Gemini failed"
+python3 "${PROJECT_DIR}/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
+echo "Gemini done"
 
 # ========== 2. 合并 ==========
 echo ""
 echo "=== Merging training data ==="
 
 MERGE_ARGS=(
-    --inputs "${WORK_DIR}/pairs_whisper.jsonl" "${WORK_DIR}/pairs_gemini.jsonl"
+    --inputs "${WORK_DIR}/pairs_gemini.jsonl"
     --output "${WORK_DIR}/training_data.jsonl"
 )
 
@@ -76,9 +75,6 @@ python3 "${PROJECT_DIR}/merge_pairs.py" "${MERGE_ARGS[@]}"
 # ========== 3. 统计 ==========
 echo ""
 echo "=== Summary ==="
-if [ -f "${WORK_DIR}/pairs_whisper.jsonl" ]; then
-    echo "Whisper pairs: $(wc -l < "${WORK_DIR}/pairs_whisper.jsonl")"
-fi
 if [ -f "${WORK_DIR}/pairs_gemini.jsonl" ]; then
     echo "Gemini pairs:  $(wc -l < "${WORK_DIR}/pairs_gemini.jsonl")"
 fi

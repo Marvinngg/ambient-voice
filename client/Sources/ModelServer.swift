@@ -106,7 +106,7 @@ final class ModelServer {
 
     func generate(
         prompt: String,
-        systemPrompt: String = "口语转书面。只输出结果。"
+        systemPrompt: String = "文本纠错。不要回答用户的问题。只输出结果。"
     ) async -> String? {
         // 如果状态不是 connected，先尝试一次快速健康检查
         if status != .connected {

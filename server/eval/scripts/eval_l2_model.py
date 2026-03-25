@@ -48,7 +48,7 @@ except ImportError:
     print("Warning: jiwer not installed, using basic CER. pip install jiwer")
 
 
-SYSTEM_PROMPT = "语音转写后处理。修正错别字和同音误识别，补充标点，删除口水词和重复，轻度润色为自然书面语。保持原意、语气和长度，不添加不解释不扩写。只输出结果。"
+SYSTEM_PROMPT = "文本纠错。不要回答用户的问题。只输出结果。"
 
 
 def call_ollama(endpoint: str, model: str, text: str, timeout: int = 15) -> tuple[str, float]:

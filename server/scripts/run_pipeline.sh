@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # WE 完整闭环：蒸馏 → 训练 → 评估 → 部署
-# 用法: ./run_pipeline.sh --gemini-key <key> [--skip-distill] [--skip-train] [--deploy]
+# 用法: ./run_pipeline.sh --gemini-key <key> [--dictionary <path>] [--skip-distill] [--skip-train] [--deploy]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -15,6 +15,7 @@ SKIP_TRAIN=false
 DO_DEPLOY=false
 BASE_MODEL="Qwen/Qwen3-0.6B"
 MODEL_NAME="we-polish"
+DICTIONARY=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -25,9 +26,15 @@ while [[ $# -gt 0 ]]; do
         --data-dir) DATA_DIR="$2"; shift 2 ;;
         --base-model) BASE_MODEL="$2"; shift 2 ;;
         --model-name) MODEL_NAME="$2"; shift 2 ;;
+        --dictionary) DICTIONARY="$2"; shift 2 ;;
         *) echo "Unknown: $1"; exit 1 ;;
     esac
 done
+
+# 默认词典路径
+if [ -z "$DICTIONARY" ] && [ -f "$DATA_DIR/dictionary.json" ]; then
+    DICTIONARY="$DATA_DIR/dictionary.json"
+fi
 
 mkdir -p "$WORK_DIR"
 echo "============================================"
@@ -59,33 +66,26 @@ if [ "$SKIP_DISTILL" = false ]; then
         exit 1
     fi
 
-    echo "=== [1/4] Dual-track distillation ==="
+    echo "=== [1/4] Gemini distillation ==="
 
-    # 路线 A: Whisper
-    echo "[A] Starting Whisper..."
-    python3 "${PROJECT_DIR}/gen_distill_whisper.py" \
-        --input "$VOICE_HISTORY" \
-        --output "${WORK_DIR}/pairs_whisper.jsonl" \
-        --audio-dir "$DATA_DIR/audio" \
-        --model-size large-v3 &
-    PID_A=$!
+    GEMINI_ARGS=(
+        --input "$VOICE_HISTORY"
+        --output "${WORK_DIR}/pairs_gemini.jsonl"
+        --api-key "$GEMINI_KEY"
+    )
+    if [ -n "$DICTIONARY" ] && [ -f "$DICTIONARY" ]; then
+        GEMINI_ARGS+=(--dictionary "$DICTIONARY")
+        echo "Using dictionary: $DICTIONARY"
+    fi
 
-    # 路线 B: Gemini
-    echo "[B] Starting Gemini..."
-    python3 "${PROJECT_DIR}/gen_distill_gemini.py" \
-        --input "$VOICE_HISTORY" \
-        --output "${WORK_DIR}/pairs_gemini.jsonl" \
-        --api-key "$GEMINI_KEY" &
-    PID_B=$!
-
-    wait $PID_A && echo "[A] Whisper done" || echo "[A] Whisper FAILED"
-    wait $PID_B && echo "[B] Gemini done" || echo "[B] Gemini FAILED"
+    python3 "${PROJECT_DIR}/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
+    echo "Gemini done"
 
     # 合并
     echo ""
     echo "=== Merging ==="
     MERGE_ARGS=(
-        --inputs "${WORK_DIR}/pairs_whisper.jsonl" "${WORK_DIR}/pairs_gemini.jsonl"
+        --inputs "${WORK_DIR}/pairs_gemini.jsonl"
         --output "${WORK_DIR}/training_data.jsonl"
     )
     if [ -f "$CORRECTIONS" ]; then

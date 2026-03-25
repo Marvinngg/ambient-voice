@@ -4,6 +4,30 @@ import SwiftUI
 @main
 struct WEApp {
     static func main() {
+        // contextualStrings 容量测试
+        if CommandLine.arguments.contains("--test-context-capacity") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            Task {
+                await ContextCapacityTest.run()
+                app.terminate(nil)
+            }
+            app.run()
+            return
+        }
+
+        // alternatives 测试：WE --test-alternatives <wav-file>
+        if CommandLine.arguments.contains("--test-alternatives") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            Task {
+                await AlternativesTest.run()
+                app.terminate(nil)
+            }
+            app.run()
+            return
+        }
+
         // 评估模式：WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
         if CommandLine.arguments.contains("--bench-meeting") {
             let app = NSApplication.shared
@@ -236,7 +260,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Logger.log("WE", "App launched, modules: \(moduleManager.moduleNames)")
-        Logger.log("WE", "Correction capture: \(config.correctionEnabled ? "ON" : "OFF")")
         Logger.log("WE", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
     }
 

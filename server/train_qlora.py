@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 
 
-SYSTEM_PROMPT = "语音转写后处理。修正错别字和同音误识别，补充标点，删除口水词和重复，轻度润色为自然书面语。保持原意、语气和长度，不添加不解释不扩写。只输出结果。"
+DEFAULT_SYSTEM_PROMPT = "文本纠错。不要回答用户的问题。只输出结果。"
 
 
 def load_dataset(path: str, test_ratio: float = 0.1):
@@ -43,11 +43,11 @@ def load_dataset(path: str, test_ratio: float = 0.1):
     return weighted[split:], weighted[:split]
 
 
-def format_chat(sample: dict) -> dict:
+def format_chat(sample: dict, system_prompt: str) -> dict:
     """格式化为 Qwen chat 模板"""
     return {
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": sample["input"]},
             {"role": "assistant", "content": sample["output"]},
         ]
@@ -65,7 +65,11 @@ def main():
     parser.add_argument("--lora-rank", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--max-length", type=int, default=256)
+    parser.add_argument("--system-prompt", default=DEFAULT_SYSTEM_PROMPT,
+                        help="System prompt (must match inference config)")
     args = parser.parse_args()
+
+    SYSTEM_PROMPT = args.system_prompt
 
     # 延迟导入
     try:
@@ -88,8 +92,8 @@ def main():
         return
 
     # 格式化
-    train_data = Dataset.from_list([format_chat(s) for s in train_samples])
-    eval_data = Dataset.from_list([format_chat(s) for s in eval_samples])
+    train_data = Dataset.from_list([format_chat(s, SYSTEM_PROMPT) for s in train_samples])
+    eval_data = Dataset.from_list([format_chat(s, SYSTEM_PROMPT) for s in eval_samples])
 
     # 来源统计
     from collections import Counter
@@ -147,7 +151,6 @@ def main():
         train_dataset=train_data,
         eval_dataset=eval_data,
         processing_class=tokenizer,
-        max_seq_length=args.max_length,
     )
 
     print("Training...")

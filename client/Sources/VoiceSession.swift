@@ -2,6 +2,31 @@ import AVFoundation
 import CoreMedia
 import Speech
 
+// MARK: - 转写数据类型
+
+/// 转写结果的词级信息
+struct WordInfo: Codable {
+    let text: String
+    let confidence: Float
+    let alternatives: [String]
+    let startTime: TimeInterval
+    let duration: TimeInterval
+}
+
+/// 一次语音会话的完整转写结果
+struct TranscriptionResult: Codable {
+    let fullText: String
+    let words: [WordInfo]
+    /// 每个 segment 的整句级候选列表（二维数组）
+    /// segmentAlternatives[i][0] == 该 segment 的 best text
+    /// segmentAlternatives[i][1..] == 替代解释（按可能性降序）
+    let segmentAlternatives: [[String]]
+    let audioPath: String?
+    let timestamp: Date
+}
+
+// MARK: - VoiceSession
+
 /// 语音会话：使用 Apple SpeechAnalyzer (WWDC 2025) 做端侧实时转写
 /// 音频采集用 AVCaptureSession（兼容蓝牙等各类音频设备）
 /// AVAudioEngine 的 installTap 在蓝牙设备上不触发回调
@@ -23,6 +48,8 @@ final class VoiceSession {
     private var finalizedText = ""
     private var volatileText = ""
     private var allWords: [WordInfo] = []
+    /// 整句级 alternatives 累积（每个 final segment 的所有候选）
+    private var allAlternatives: [[String]] = []
 
     /// 识别完成时的回调
     var onResult: ((TranscriptionResult) -> Void)?
@@ -101,7 +128,17 @@ final class VoiceSession {
                         let words = self.extractWords(from: result.text)
                         self.allWords.append(contentsOf: words)
 
-                        Logger.log("Voice", "Final segment: \(text) (\(words.count) words)")
+                        // 收集整句级 alternatives
+                        let alts = result.alternatives.map { String($0.characters) }
+                        self.allAlternatives.append(alts)
+
+                        let altCount = alts.count
+                        Logger.log("Voice", "Final segment: \(text) (\(words.count) words, \(altCount) alternatives)")
+                        if altCount > 1 {
+                            for (i, alt) in alts.enumerated() where alt != text {
+                                Logger.log("Voice", "  alt[\(i)]: \(alt)")
+                            }
+                        }
                     } else {
                         self.volatileText = text
                         self.onPartialResult?(self.finalizedText + text)
@@ -155,7 +192,9 @@ final class VoiceSession {
         context.contextualStrings[.general] = contextualWords
         do {
             try await analyzer.setContext(context)
-            Logger.log("Voice", "SA context updated: \(contextualWords.count) words")
+            let preview = contextualWords.prefix(5).joined(separator: ", ")
+            let suffix = contextualWords.count > 5 ? "..." : ""
+            Logger.log("Voice", "SA context injected \(contextualWords.count) contextualStrings: [\(preview)\(suffix)]")
         } catch {
             Logger.log("Voice", "SA context update failed: \(error)")
         }
@@ -164,7 +203,7 @@ final class VoiceSession {
     /// 停止录音并等待最终结果
     func stop() async -> TranscriptionResult {
         guard isRunning else {
-            return TranscriptionResult(fullText: "", words: [], audioPath: nil, timestamp: Date())
+            return TranscriptionResult(fullText: "", words: [], segmentAlternatives: [], audioPath: nil, timestamp: Date())
         }
 
         // 停止音频采集
@@ -206,6 +245,7 @@ final class VoiceSession {
         return TranscriptionResult(
             fullText: fullText,
             words: allWords,
+            segmentAlternatives: allAlternatives,
             audioPath: audioFileURL?.path,
             timestamp: Date()
         )

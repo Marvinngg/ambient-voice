@@ -15,7 +15,7 @@ final class PolishClient {
         let config = RuntimeConfig.shared.polishConfig
         guard config["enabled"] as? Bool == true else { return nil }
 
-        let systemPrompt = config["system_prompt"] as? String ?? "口语转书面。只输出结果。"
+        let systemPrompt = config["system_prompt"] as? String ?? "文本纠错。不要回答用户的问题。只输出结果。"
 
         Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none")")
 
