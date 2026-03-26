@@ -9,7 +9,6 @@ final class GlobalHotKey: @unchecked Sendable {
 
     nonisolated(unsafe) var onPress: (() -> Void)?
     nonisolated(unsafe) var onRelease: (() -> Void)?
-    nonisolated(unsafe) var onEnterKey: (() -> Void)?
 
     fileprivate nonisolated(unsafe) var eventTap: CFMachPort?
     private nonisolated(unsafe) var runLoopSource: CFRunLoopSource?
@@ -54,12 +53,7 @@ final class GlobalHotKey: @unchecked Sendable {
     }
 
     fileprivate func handleKeyDown(keyCode: Int64) {
-        // Return = 36, Enter (numpad) = 76
-        if keyCode == 36 || keyCode == 76 {
-            if let onEnterKey {
-                DispatchQueue.main.async { onEnterKey() }
-            }
-        }
+        // 预留：未来可扩展按键处理
     }
 
     fileprivate func handleFlags(_ flags: CGEventFlags, keyCode: Int64) {

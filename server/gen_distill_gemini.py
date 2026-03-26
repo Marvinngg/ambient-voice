@@ -19,23 +19,18 @@ def edit_distance_ratio(a: str, b: str) -> float:
     return 1.0 - SequenceMatcher(None, a, b).ratio()
 
 
-SYSTEM_PROMPT = """你是 ASR（语音识别）纠错专家。
-
-你会收到两段文本：
-1. "语音识别原文"：Apple 语音识别引擎的直接输出，可能有错字、漏字、多字
-2. "小模型润色结果"：一个小模型的润色尝试，可能改对了一些，也可能引入了新错误
-
-你的任务：
-- 判断哪些地方是对的、哪些地方有错
-- 输出你纠正后的最终文本
-- 只改确定有错的地方，不确定就保持原样
-- 不要改变原意、语气和风格
-- 不要添加原文没有的内容
-- 只输出纠正后的文本，不要解释"""
+DEFAULT_DISTILL_PROMPT = "你是语音识别纠错专家。用户会提供一个私有词典和语音识别结果。将识别错误替换为词典中的正确词。只改确定有错的。只输出纠正后的文本。"
 
 
-def build_prompt(raw_sa: str, polished: str) -> str:
-    return f"语音识别原文：{raw_sa}\n小模型润色结果：{polished}\n\n你的纠正："
+def build_prompt(raw_sa: str, polished: str, dictionary_terms: list[str] | None = None) -> str:
+    parts = []
+    if dictionary_terms:
+        parts.append(f"用户常用词汇：{', '.join(dictionary_terms)}")
+    parts.append(f"语音识别结果：{raw_sa}")
+    if polished and polished != raw_sa:
+        parts.append(f"小模型润色结果：{polished}")
+    parts.append("将识别错误替换为词典中的正确词。只改确定有错的。只输出结果。")
+    return "\n".join(parts)
 
 
 def call_openai_compatible(base_url: str, api_key: str, model: str,
@@ -88,9 +83,25 @@ def main():
     parser.add_argument("--rate-limit", type=float, default=0.5,
                         help="Seconds between API calls")
     parser.add_argument("--max-retries", type=int, default=3, help="Max retries per sample")
+    parser.add_argument("--dictionary", default=None,
+                        help="Path to dictionary.json (JSON with 'terms' array)")
+    parser.add_argument("--system-prompt", default=DEFAULT_DISTILL_PROMPT,
+                        help="System prompt for distillation model")
     parser.add_argument("--incremental", action="store_true",
                         help="Incremental mode: only process new entries since last run")
     args = parser.parse_args()
+
+    SYSTEM_PROMPT = args.system_prompt
+
+    # 加载词典
+    dictionary_terms: list[str] | None = None
+    if args.dictionary:
+        try:
+            with open(args.dictionary) as f:
+                dictionary_terms = json.load(f).get("terms", [])
+            print(f"Loaded dictionary: {len(dictionary_terms)} terms from {args.dictionary}")
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Warning: failed to load dictionary {args.dictionary}: {e}")
 
     pairs = []
     skipped = 0
@@ -124,7 +135,7 @@ def main():
         if not polished:
             polished = raw_sa
 
-        prompt = build_prompt(raw_sa, polished)
+        prompt = build_prompt(raw_sa, polished, dictionary_terms)
 
         # 带重试的 API 调用
         corrected = None

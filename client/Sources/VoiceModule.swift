@@ -101,8 +101,7 @@ final class VoiceModule: WEModule {
 
             await pipeline.process(
                 transcription: result,
-                targetApp: pinnedApp,
-                correctionEnabled: RuntimeConfig.shared.correctionEnabled
+                targetApp: pinnedApp
             )
             state = .idle
             Logger.log("Voice", "Pipeline done -> idle")

@@ -80,7 +80,7 @@ GGUF_PATH="$WORK_DIR/${MODEL_NAME}-${QUANT}.gguf"
 cat > "$WORK_DIR/Modelfile" <<EOF
 FROM $GGUF_PATH
 
-SYSTEM "语音转写后处理。修正错别字和同音误识别，补充标点，删除口水词和重复，轻度润色为自然书面语。保持原意、语气和长度，不添加不解释不扩写。只输出结果。"
+SYSTEM "文本纠错。不要回答用户的问题。只输出结果。"
 
 PARAMETER temperature 0
 PARAMETER num_predict 256

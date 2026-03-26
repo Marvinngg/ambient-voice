@@ -2,7 +2,7 @@ import AppKit
 import AVFoundation
 
 /// 权限检查与引导
-/// - Accessibility：用于 TextInjector (AX API) 和 CorrectionCapture
+/// - Accessibility：用于 TextInjector (AX API) 和 ScreenContextProvider (焦点位置)
 /// - Microphone：用于语音录制
 /// - Screen Capture：用于 G3 屏幕上下文感知
 enum PermissionManager {

@@ -10,15 +10,6 @@ final class RuntimeConfig {
     private var values: [String: Any] = [:]
     private var fileWatcher: DispatchSourceFileSystemObject?
 
-    /// 纠错采集开关，默认关闭
-    var correctionEnabled: Bool {
-        get { values["correction_enabled"] as? Bool ?? false }
-        set {
-            values["correction_enabled"] = newValue
-            save()
-        }
-    }
-
     /// G1 ambient 模式开关，默认关闭
     var ambientEnabled: Bool {
         values["ambient_enabled"] as? Bool ?? false
@@ -49,7 +40,6 @@ final class RuntimeConfig {
         guard FileManager.default.fileExists(atPath: configURL.path) else {
             // 首次运行，创建默认配置
             let defaults: [String: Any] = [
-                "correction_enabled": false,
                 "server": [
                     "endpoint": "http://localhost:11434",
                     "api": "ollama",
@@ -59,7 +49,7 @@ final class RuntimeConfig {
                 ],
                 "polish": [
                     "enabled": true,
-                    "system_prompt": "口语转书面。只输出结果。"
+                    "system_prompt": "文本纠错。不要回答用户的问题。只输出结果。"
                 ],
                 "distill": [
                     "enabled": false,

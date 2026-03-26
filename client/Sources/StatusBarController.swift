@@ -95,17 +95,6 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        // 纠错开关
-        let correctionItem = NSMenuItem(
-            title: correctionMenuTitle,
-            action: #selector(toggleCorrection),
-            keyEquivalent: ""
-        )
-        correctionItem.target = self
-        menu.addItem(correctionItem)
-
-        menu.addItem(NSMenuItem.separator())
-
         // 配置与数据
         let configItem = NSMenuItem(
             title: "编辑配置文件...",
@@ -158,9 +147,6 @@ final class StatusBarController {
         return "模型：\(model)"
     }
 
-    private var correctionMenuTitle: String {
-        "纠错采集：\(config.correctionEnabled ? "开启" : "关闭")"
-    }
 
     @objc private func checkServer() {
         Task {
@@ -168,12 +154,6 @@ final class StatusBarController {
             setupMenu()
             updateIcon()
         }
-    }
-
-    @objc private func toggleCorrection() {
-        config.correctionEnabled.toggle()
-        setupMenu()
-        Logger.log("StatusBar", "Correction capture: \(config.correctionEnabled ? "ON" : "OFF")")
     }
 
     @objc private func toggleMeeting() {
