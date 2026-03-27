@@ -1,7 +1,7 @@
 import Foundation
 
 /// 语音模块
-/// 交互：按右 Command 开始录音+转写 → 再按右 Command 停止 → 自动注入
+/// 交互：按住右 Command 说话 → 松开自动停止并注入文字 (push-to-talk)
 @MainActor
 final class VoiceModule: WEModule {
     let name = "Voice"
@@ -21,23 +21,19 @@ final class VoiceModule: WEModule {
     var onStateChange: ((State) -> Void)?
 
     private var session: VoiceSession?
-    private let pipeline = VoicePipeline()
     private var pinnedApp: AppIdentity?
     private var screenContext: ScreenContextProvider.ScreenContext?
 
     func onHotKeyDown() {
-        switch state {
-        case .idle:
+        if state == .idle {
             startRecording()
-        case .recording:
-            stopAndProcess()
-        case .processing:
-            Logger.log("Voice", "Ignored hotkey, processing")
         }
     }
 
     func onHotKeyUp() {
-        // 松开不做操作
+        if state == .recording {
+            stopAndProcess()
+        }
     }
 
     private func startRecording() {
@@ -99,10 +95,14 @@ final class VoiceModule: WEModule {
 
             Logger.log("Voice", "Transcribed: \(result.fullText)")
 
-            await pipeline.process(
-                transcription: result,
-                targetApp: pinnedApp
-            )
+            if let app = pinnedApp ?? AppIdentity.current() {
+                await VoicePipeline.process(
+                    result: result,
+                    appIdentity: app,
+                    screenContext: screenContext,
+                    audioFilePath: result.audioPath
+                )
+            }
             state = .idle
             Logger.log("Voice", "Pipeline done -> idle")
         }

@@ -12,6 +12,8 @@ final class StatusBarController {
     private var meetingSession: MeetingSession?
     private let transcriptPanel = TranscriptPanelController()
     private var isMeetingActive: Bool { meetingSession?.isRunning ?? false }
+    private var meetingTimer: Timer?
+    private var meetingWordCount: Int = 0
 
     init(moduleManager: ModuleManager) {
         self.moduleManager = moduleManager
@@ -165,36 +167,25 @@ final class StatusBarController {
     }
 
     private func startMeeting() {
-        let session = MeetingSession()
+        let config = WEConfig.load()
+        let meetingConfig = config.meeting ?? .default
+        let session = MeetingSession(config: meetingConfig)
         self.meetingSession = session
+        self.meetingWordCount = 0
 
         // 实时转写回调 → 更新面板
-        var wordCount = 0
-        session.onTranscriptUpdate = { [weak self] text, isFinal in
+        // wordCount tracks cumulative final chars + current partial chars
+        var finalCharCount = 0
+        session.onSegment = { [weak self] (segment: MeetingSegment) -> Void in
             guard let self else { return }
-            if isFinal {
-                wordCount += text.count
-                let segment = MeetingSegment(
-                    text: text,
-                    startTime: self.meetingSession?.duration ?? 0,
-                    endTime: self.meetingSession?.duration ?? 0,
-                    speakerId: nil,
-                    isFinal: true
-                )
-                self.transcriptPanel.appendSegment(segment)
-                self.transcriptPanel.updateStatus(
-                    duration: self.meetingSession?.duration ?? 0,
-                    wordCount: wordCount
-                )
+            if segment.isFinal {
+                finalCharCount += segment.text.count
+                self.meetingWordCount = finalCharCount
+            } else {
+                // Partial result: show final chars + current partial length
+                self.meetingWordCount = finalCharCount + segment.text.count
             }
-        }
-
-        session.onDurationUpdate = { [weak self] duration in
-            guard let self else { return }
-            self.transcriptPanel.updateStatus(
-                duration: duration,
-                wordCount: wordCount
-            )
+            self.transcriptPanel.appendSegment(segment)
         }
 
         // 显示转录面板
@@ -208,6 +199,7 @@ final class StatusBarController {
                 Logger.log("StatusBar", "Meeting started")
                 self.setupMenu()
                 self.updateMeetingIcon()
+                self.startMeetingTimer()
             } catch {
                 Logger.log("StatusBar", "Meeting start failed: \(error)")
                 self.meetingSession = nil
@@ -219,27 +211,40 @@ final class StatusBarController {
     private func stopMeeting() {
         guard let session = meetingSession else { return }
         transcriptPanel.setRecording(false)
+        meetingTimer?.invalidate()
+        meetingTimer = nil
 
-        Task {
-            let result = await session.stop()
-            self.meetingSession = nil
+        let meeting = session.stop()
+        self.meetingSession = nil
 
-            // 更新面板显示最终结果（带说话人标签）
-            if !result.segments.isEmpty {
-                self.transcriptPanel.updateTranscript(segments: result.segments)
+        // 更新面板显示最终结果（带说话人标签）
+        if !meeting.segments.isEmpty {
+            self.transcriptPanel.updateTranscript(segments: meeting.segments)
+        }
+
+        // 导出 Markdown
+        if let url = MeetingExporter.exportMarkdown(
+            segments: meeting.segments,
+            duration: meeting.duration
+        ) {
+            Logger.log("StatusBar", "Meeting exported: \(url.lastPathComponent)")
+        }
+
+        self.setupMenu()
+        self.updateMeetingIcon()
+        Logger.log("StatusBar", "Meeting stopped, \(meeting.segments.count) segments, \(String(format: "%.0f", meeting.duration))s")
+    }
+
+    private func startMeetingTimer() {
+        meetingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let session = self.meetingSession else { return }
+                let meeting = session.currentMeeting
+                self.transcriptPanel.updateStatus(
+                    duration: meeting.duration,
+                    wordCount: self.meetingWordCount
+                )
             }
-
-            // 导出 Markdown
-            if let url = MeetingExporter.exportMarkdown(
-                segments: result.segments,
-                duration: result.duration
-            ) {
-                Logger.log("StatusBar", "Meeting exported: \(url.lastPathComponent)")
-            }
-
-            self.setupMenu()
-            self.updateMeetingIcon()
-            Logger.log("StatusBar", "Meeting stopped, \(result.segments.count) segments, \(String(format: "%.0f", result.duration))s")
         }
     }
 
