@@ -5,7 +5,7 @@ import Foundation
 @MainActor
 final class MeetingModule: WEModule {
     let name = "Meeting"
-    private(set) var isActive = false
+    var isActive = false
 
     enum State {
         case idle, recording
@@ -16,12 +16,23 @@ final class MeetingModule: WEModule {
 
     private let context: ShellContext
     private var session: MeetingSession?
-    private let panel = TranscriptPanel()
+    private let panel = TranscriptPanelController()
     private var timerUpdateTimer: Timer?
     private var lastMeeting: Meeting?
 
     init(context: ShellContext) {
         self.context = context
+    }
+
+    // MARK: - WEModule protocol
+
+    func onHotKeyDown() {
+        // Meeting mode uses double-tap, not hold — toggle on key down
+        toggle()
+    }
+
+    func onHotKeyUp() {
+        // No-op for meeting mode (toggle happens on key down)
     }
 
     // MARK: - WEModule lifecycle
@@ -80,7 +91,6 @@ final class MeetingModule: WEModule {
         }
 
         // Show panel
-        panel.opacity = meetingConfig.panelOpacity
         panel.show()
 
         // Start recording
@@ -127,7 +137,7 @@ final class MeetingModule: WEModule {
             Task { @MainActor [weak self] in
                 guard let self, let session = self.session else { return }
                 let meeting = session.currentMeeting
-                self.panel.updateTimer(meeting.formattedDuration)
+                self.panel.updateStatus(duration: meeting.duration, wordCount: meeting.segments.count)
             }
         }
     }

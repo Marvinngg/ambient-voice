@@ -32,6 +32,11 @@ struct TranscriptionResult: Codable {
 /// AVAudioEngine 的 installTap 在蓝牙设备上不触发回调
 @MainActor
 final class VoiceSession {
+    enum SessionError: Error {
+        case recognizerUnavailable
+        case audioEngineFailure(NSError)
+    }
+
     private var captureSession: AVCaptureSession?
     private var captureDelegate: AudioCaptureDelegate?
     private var analyzer: SpeechAnalyzer?

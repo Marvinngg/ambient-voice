@@ -46,7 +46,7 @@ enum VoicePipeline {
     static func process(
         result: TranscriptionResult,
         appIdentity: AppIdentity,
-        screenContext: ScreenContext? = nil,
+        screenContext: ScreenContextProvider.ScreenContext? = nil,
         audioFilePath: String? = nil
     ) async -> PipelineResult {
         let sessionID = UUID().uuidString
@@ -55,7 +55,7 @@ enum VoicePipeline {
         // Import any corrections from the shell hook before L1 runs
         TerminalCorrectionBridge.importShellCorrections()
 
-        let contextKeywords = screenContext?.keywords ?? []
+        let contextKeywords = screenContext?.contextualWords ?? []
         if !contextKeywords.isEmpty {
             DebugLog.log(.pipeline, "Screen context: \(contextKeywords.count) keywords")
         }
@@ -117,20 +117,14 @@ enum VoicePipeline {
         }
 
         // Step 5: Save to voice history (audioFilePath preserved for offline distillation)
-        let historyEntry = VoiceHistoryEntry(
-            sessionID: sessionID,
-            timestamp: Date(),
-            rawText: result.fullText,
+        let history = VoiceHistory()
+        history.save(
+            transcription: result,
             l1Text: l1Text,
             polishedText: polishedText,
-            appBundleID: appIdentity.bundleID,
-            appName: appIdentity.appName,
-            wordCount: result.words.count,
-            duration: result.words.last.map { $0.timestamp + $0.duration } ?? 0,
-            polished: polishedText != nil,
-            audioFilePath: audioFilePath
+            finalText: finalText,
+            app: appIdentity
         )
-        VoiceHistory.shared.save(entry: historyEntry)
         DebugLog.log(.pipeline, "Session \(sessionID) saved to history")
 
         return PipelineResult(
@@ -156,7 +150,7 @@ enum VoicePipeline {
     @MainActor
     private static func polishLowConfidence(
         l1WordTexts: [String],
-        words: [TranscribedWord],
+        words: [WordInfo],
         client: PolishClient,
         appBundleID: String,
         contextKeywords: [String]

@@ -77,6 +77,44 @@ enum MeetingExporter {
         return lines.joined(separator: "\n")
     }
 
+    /// Export segments and duration directly to a Markdown file, returning the URL.
+    static func exportMarkdown(segments: [MeetingSegment], duration: TimeInterval) -> URL? {
+        guard !segments.isEmpty else { return nil }
+
+        var lines: [String] = []
+        let durationMin = Int(duration) / 60
+        let durationSec = Int(duration) % 60
+
+        lines.append("# Meeting Transcript")
+        lines.append("")
+        lines.append("Duration: \(String(format: "%02d:%02d", durationMin, durationSec))")
+        lines.append("Segments: \(segments.count)")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        for segment in segments where segment.isFinal {
+            let timestamp = formatTimestamp(segment.timestamp)
+            let speaker = "Speaker \(segment.speakerIndex + 1)"
+            lines.append("**[\(timestamp)]** \(speaker): \(segment.text)")
+            lines.append("")
+        }
+
+        let markdown = lines.joined(separator: "\n")
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".we/meetings/exports")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let url = dir.appendingPathComponent("\(fileName).md")
+        do {
+            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     private static func formatTimestamp(_ seconds: TimeInterval) -> String {
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)

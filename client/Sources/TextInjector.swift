@@ -40,4 +40,25 @@ enum TextInjector {
             }
         }
     }
+
+    /// Convenience wrapper matching VoicePipeline's expected API
+    @MainActor
+    static func insert(_ text: String, into app: AppIdentity) {
+        inject(text: text, to: app)
+    }
+
+    /// Check if the given bundle ID is a terminal application
+    static func isTerminalApp(_ bundleID: String) -> Bool {
+        let terminalBundleIDs = [
+            "com.apple.Terminal",
+            "com.googlecode.iterm2",
+            "com.mitchellh.ghostty",
+            "net.kovidgoyal.kitty",
+            "co.zeit.hyper",
+            "com.github.wez.wezterm",
+            "dev.warp.Warp-Stable",
+            "io.alacritty",
+        ]
+        return terminalBundleIDs.contains(bundleID)
+    }
 }

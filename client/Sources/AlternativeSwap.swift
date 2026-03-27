@@ -37,7 +37,7 @@ struct AlternativeSwap {
     /// - Returns: L1Result with corrected text and per-word outputs.
     static func apply(
         rawText: String,
-        words: [TranscribedWord],
+        words: [WordInfo],
         correctionHistory: [CorrectionEntry],
         contextKeywords: [String] = [],
         replacements: [String: String] = [:]
@@ -160,7 +160,7 @@ struct AlternativeSwap {
     ///   - correctionMap: Known corrections from user history.
     /// - Returns: The replacement string, or nil if no swap should be made.
     private static func findBestAlternative(
-        for word: TranscribedWord,
+        for word: WordInfo,
         correctionMap: [String: String],
         contextKeywords: Set<String> = []
     ) -> String? {

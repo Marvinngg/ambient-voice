@@ -18,6 +18,7 @@ final class MeetingSession: @unchecked Sendable {
     // Audio capture via AVCaptureSession (handles Bluetooth correctly)
     private var captureSession: AVCaptureSession?
     private var audioOutput: AVCaptureAudioDataOutput?
+    private var bufferDelegate: AudioBufferDelegate?
     private let captureQueue = DispatchQueue(label: "we.meeting.capture", qos: .userInitiated)
 
     // Speech recognition
@@ -36,6 +37,11 @@ final class MeetingSession: @unchecked Sendable {
     private var lastSpeechTime: Date?
     private var silenceTimer: Timer?
 
+    // Track latest partial result so we can save it on stop
+    private var lastPartialText: String = ""
+    private var lastPartialTimestamp: TimeInterval = 0
+    private var lastPartialSpeaker: Int = 0
+
     // Recognition restart
     private var recognitionStartTime: Date?
     private static let maxRecognitionDuration: TimeInterval = 55  // Restart before 60s limit
@@ -51,6 +57,8 @@ final class MeetingSession: @unchecked Sendable {
     }
 
     var currentMeeting: Meeting { meeting }
+
+    var isRunning: Bool { state == .recording }
 
     // MARK: - Public API
 
@@ -84,10 +92,9 @@ final class MeetingSession: @unchecked Sendable {
         }
 
         let output = AVCaptureAudioDataOutput()
-        output.setSampleBufferDelegate(
-            AudioBufferDelegate(session: self),
-            queue: captureQueue
-        )
+        let delegate = AudioBufferDelegate(session: self)
+        self.bufferDelegate = delegate  // Must retain — AVFoundation does not retain delegates
+        output.setSampleBufferDelegate(delegate, queue: captureQueue)
         if session.canAddOutput(output) {
             session.addOutput(output)
         }
@@ -113,6 +120,50 @@ final class MeetingSession: @unchecked Sendable {
         DebugLog.log(.meeting, "Meeting \(meeting.id) started (AVCaptureSession)")
     }
 
+    /// Run speech recognition on an audio file (for CLI benchmark / evaluation).
+    /// Returns a MeetingResult with all recognized segments.
+    func runFromFile(_ fileURL: URL, locale: String) async -> MeetingResult {
+        let speechLocale = Locale(identifier: locale)
+        guard let recognizer = SFSpeechRecognizer(locale: speechLocale), recognizer.isAvailable else {
+            return MeetingResult(segments: [], duration: 0, audioPath: fileURL.path)
+        }
+
+        let request = SFSpeechURLRecognitionRequest(url: fileURL)
+        request.shouldReportPartialResults = false
+
+        var segments: [MeetingSegment] = []
+        let startTime = Date()
+
+        do {
+            let text = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                recognizer.recognitionTask(with: request) { result, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else if let result, result.isFinal {
+                        continuation.resume(returning: result.bestTranscription.formattedString)
+                    }
+                }
+            }
+
+            if !text.isEmpty {
+                let duration = -startTime.timeIntervalSinceNow
+                let segment = MeetingSegment(
+                    timestamp: 0,
+                    text: text,
+                    speakerIndex: 0,
+                    isFinal: true
+                )
+                segments.append(segment)
+                return MeetingResult(segments: segments, duration: duration, audioPath: fileURL.path)
+            }
+        } catch {
+            DebugLog.log(.meeting, "runFromFile recognition failed: \(error)", level: .error)
+        }
+
+        let duration = -startTime.timeIntervalSinceNow
+        return MeetingResult(segments: segments, duration: duration, audioPath: fileURL.path)
+    }
+
     func stop() -> Meeting {
         guard state == .recording else { return meeting }
 
@@ -122,6 +173,19 @@ final class MeetingSession: @unchecked Sendable {
         captureSession?.stopRunning()
         captureSession = nil
         audioOutput = nil
+        bufferDelegate = nil
+
+        // Save any pending partial result before cancelling recognition
+        if !lastPartialText.isEmpty {
+            let finalSegment = MeetingSegment(
+                timestamp: lastPartialTimestamp,
+                text: lastPartialText,
+                speakerIndex: lastPartialSpeaker,
+                isFinal: true
+            )
+            meeting.segments.append(finalSegment)
+            lastPartialText = ""
+        }
 
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
@@ -142,24 +206,27 @@ final class MeetingSession: @unchecked Sendable {
     // MARK: - Audio Buffer Processing
 
     fileprivate func handleAudioBuffer(_ sampleBuffer: CMSampleBuffer) {
-        // Feed to speech recognizer
-        recognitionRequest?.appendAudioSampleBuffer(sampleBuffer)
+        // Convert to PCM buffer once, share across recognizer + file writer
+        if let pcm = pcmBuffer(from: sampleBuffer) {
+            // Feed to speech recognizer (append PCM is more reliable than appendAudioSampleBuffer)
+            recognitionRequest?.append(pcm)
 
-        // RMS silence detection
-        checkRMSSilence(sampleBuffer)
-
-        // Write to audio file
-        if config.saveAudio {
-            writeAudioChunk(sampleBuffer)
+            // Write to audio file
+            if config.saveAudio {
+                writeAudioChunk(pcm)
+            }
         }
+
+        // RMS silence detection (works directly on CMSampleBuffer)
+        checkRMSSilence(sampleBuffer)
     }
 
-    private func writeAudioChunk(_ sampleBuffer: CMSampleBuffer) {
+    private func writeAudioChunk(_ pcmBuffer: AVAudioPCMBuffer) {
         // Lazy init audio format and file from first buffer
         if audioFormat == nil {
-            guard let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) else { return }
-            let format = AVAudioFormat(cmAudioFormatDescription: formatDesc)
+            let format = pcmBuffer.format
             self.audioFormat = format
+            DebugLog.log(.meeting, "Audio format: \(format.sampleRate)Hz, \(format.channelCount)ch, \(format.commonFormat.rawValue)")
             do {
                 try startNewAudioChunk(format: format)
             } catch {
@@ -167,8 +234,7 @@ final class MeetingSession: @unchecked Sendable {
             }
         }
 
-        // Convert CMSampleBuffer to AVAudioPCMBuffer and write
-        guard let pcmBuffer = pcmBuffer(from: sampleBuffer) else { return }
+        // Write PCM buffer to file
         try? audioFile?.write(from: pcmBuffer)
 
         // Rotate chunk if needed
@@ -185,19 +251,36 @@ final class MeetingSession: @unchecked Sendable {
 
     private func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
         guard let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) else { return nil }
-        let format = AVAudioFormat(cmAudioFormatDescription: formatDesc)
+        let sourceFormat = AVAudioFormat(cmAudioFormatDescription: formatDesc)
 
         let frameCount = CMSampleBufferGetNumSamples(sampleBuffer)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else { return nil }
-        buffer.frameLength = AVAudioFrameCount(frameCount)
-
         guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return nil }
         var length = 0
         var dataPointer: UnsafeMutablePointer<Int8>?
         CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &dataPointer)
+        guard let data = dataPointer else { return nil }
 
-        guard let data = dataPointer, let channelData = buffer.floatChannelData else { return nil }
-        memcpy(channelData[0], data, length)
+        // SFSpeechAudioBufferRecognitionRequest needs Float32 PCM
+        let floatFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: sourceFormat.sampleRate,
+            channels: sourceFormat.channelCount,
+            interleaved: false
+        )!
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: floatFormat, frameCapacity: AVAudioFrameCount(frameCount)) else { return nil }
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+        guard let channelData = buffer.floatChannelData else { return nil }
+
+        // Handle source format: Int16 needs conversion, Float32 can memcpy directly
+        if sourceFormat.commonFormat == .pcmFormatInt16 {
+            let int16Pointer = UnsafeRawPointer(data).bindMemory(to: Int16.self, capacity: frameCount)
+            for i in 0..<frameCount {
+                channelData[0][i] = Float(int16Pointer[i]) / 32768.0
+            }
+        } else {
+            // Float32 or compatible — direct copy
+            memcpy(channelData[0], data, min(length, frameCount * MemoryLayout<Float>.size))
+        }
 
         return buffer
     }
@@ -227,6 +310,12 @@ final class MeetingSession: @unchecked Sendable {
                     )
                     if result.isFinal {
                         self.meeting.segments.append(segment)
+                        self.lastPartialText = ""
+                    } else {
+                        // Track partial so stop() can finalize it
+                        self.lastPartialText = text
+                        self.lastPartialTimestamp = self.meeting.duration
+                        self.lastPartialSpeaker = self.speakerTracker.currentSpeakerIndex
                     }
                     DispatchQueue.main.async {
                         self.onSegment?(segment)
@@ -322,7 +411,7 @@ final class MeetingSession: @unchecked Sendable {
 
 // MARK: - AVCaptureAudioDataOutput delegate bridge
 
-private class AudioBufferDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
+fileprivate class AudioBufferDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     weak var session: MeetingSession?
 
     init(session: MeetingSession) {

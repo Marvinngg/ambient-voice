@@ -7,7 +7,8 @@ struct SemanticDiff: Codable {
 }
 
 /// 纠错记录
-struct CorrectionEntry: Codable {
+struct CorrectionEntry: Codable, Identifiable {
+    let id: String
     let timestamp: Date
     let rawText: String
     let insertedText: String
@@ -15,13 +16,41 @@ struct CorrectionEntry: Codable {
     let diffs: [SemanticDiff]
     let quality: Double
     let source: String  // "human"
-    let appBundleID: String?
+    let appBundleID: String
+    let appName: String
+    let metadata: [String: String]
+
+    /// Convenience init with defaults for backward compatibility
+    init(
+        id: String = UUID().uuidString,
+        timestamp: Date = Date(),
+        rawText: String,
+        insertedText: String,
+        userFinalText: String,
+        diffs: [SemanticDiff] = [],
+        quality: Double,
+        source: String = "human",
+        appBundleID: String = "",
+        appName: String = "",
+        metadata: [String: String] = [:]
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.rawText = rawText
+        self.insertedText = insertedText
+        self.userFinalText = userFinalText
+        self.diffs = diffs
+        self.quality = quality
+        self.source = source
+        self.appBundleID = appBundleID
+        self.appName = appName
+        self.metadata = metadata
+    }
 }
 
 /// 纠错数据存储
 /// 写入 ~/.we/corrections.jsonl 和 ~/.we/semantic-diffs.jsonl
-@MainActor
-final class CorrectionStore {
+final class CorrectionStore: @unchecked Sendable {
     static let shared = CorrectionStore()
 
     private let correctionsWriter = JSONLWriter(filename: "corrections.jsonl")
@@ -45,6 +74,11 @@ final class CorrectionStore {
     }
 
     func recentCorrections() -> [CorrectionEntry] {
+        recentEntries
+    }
+
+    func loadHistory() -> [CorrectionEntry] {
+        // Return in-memory recent entries (JSONL file is append-only, full reload not yet implemented)
         recentEntries
     }
 }
