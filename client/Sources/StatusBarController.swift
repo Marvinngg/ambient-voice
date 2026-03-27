@@ -4,7 +4,6 @@ import AppKit
 final class StatusBarController {
     private let statusItem: NSStatusItem
     private let moduleManager: ModuleManager
-    private let config = RuntimeConfig.shared
 
     private var isRecording = false
 
@@ -16,11 +15,6 @@ final class StatusBarController {
     init(moduleManager: ModuleManager) {
         self.moduleManager = moduleManager
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-        ModelServer.shared.onStatusChange = { [weak self] _ in
-            self?.updateIcon()
-            self?.setupMenu()
-        }
 
         updateIcon()
         setupMenu()
@@ -37,41 +31,16 @@ final class StatusBarController {
         if isRecording {
             button.title = "WE●"
             button.contentTintColor = .systemRed
-            return
-        }
-
-        button.contentTintColor = nil
-        switch ModelServer.shared.status {
-        case .connected:
+        } else {
             button.title = "WE"
-        case .disconnected:
-            button.title = "WE·"
-        case .unknown:
-            button.title = "WE?"
+            button.contentTintColor = nil
         }
     }
 
     private func setupMenu() {
         let menu = NSMenu()
 
-        menu.addItem(NSMenuItem(title: "WE 语音输入", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem.separator())
-
-        // 服务器状态
-        let serverItem = NSMenuItem(title: serverMenuTitle, action: nil, keyEquivalent: "")
-        menu.addItem(serverItem)
-
-        let modelItem = NSMenuItem(title: modelMenuTitle, action: nil, keyEquivalent: "")
-        menu.addItem(modelItem)
-
-        let reconnectItem = NSMenuItem(
-            title: "检查服务器连接",
-            action: #selector(checkServer),
-            keyEquivalent: ""
-        )
-        reconnectItem.target = self
-        menu.addItem(reconnectItem)
-
+        menu.addItem(NSMenuItem(title: "WE Lite 语音输入", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
         // 会议模式
@@ -129,33 +98,6 @@ final class StatusBarController {
         statusItem.menu = menu
     }
 
-    private var serverMenuTitle: String {
-        let status = ModelServer.shared.status
-        let endpoint = RuntimeConfig.shared.serverConfig["endpoint"] as? String ?? "未配置"
-        switch status {
-        case .connected:
-            return "服务器：已连接 (\(endpoint))"
-        case .disconnected:
-            return "服务器：未连接 (\(endpoint))"
-        case .unknown:
-            return "服务器：检测中..."
-        }
-    }
-
-    private var modelMenuTitle: String {
-        let model = RuntimeConfig.shared.serverConfig["model"] as? String ?? "未配置"
-        return "模型：\(model)"
-    }
-
-
-    @objc private func checkServer() {
-        Task {
-            await ModelServer.shared.checkHealth()
-            setupMenu()
-            updateIcon()
-        }
-    }
-
     @objc private func toggleMeeting() {
         if isMeetingActive {
             stopMeeting()
@@ -168,7 +110,7 @@ final class StatusBarController {
         let session = MeetingSession()
         self.meetingSession = session
 
-        // 实时转写回调 → 更新面板
+        // 实时转写回调 -> 更新面板
         var wordCount = 0
         session.onTranscriptUpdate = { [weak self] text, isFinal in
             guard let self else { return }
