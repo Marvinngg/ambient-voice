@@ -20,6 +20,9 @@ final class VoiceModule: WEModule {
     /// 状态变化回调（UI 指示器用）
     var onStateChange: ((State) -> Void)?
 
+    /// 实时识别文字回调（UI 指示器展示用）
+    var onPartialText: ((String) -> Void)?
+
     private var session: VoiceSession?
     private let pipeline = VoicePipeline()
     private var pinnedApp: AppIdentity?
@@ -55,6 +58,9 @@ final class VoiceModule: WEModule {
         Logger.log("Voice", "Pinned app: \(pinnedApp?.bundleID ?? "unknown")")
 
         let voiceSession = VoiceSession()
+        voiceSession.onPartialResult = { [weak self] text in
+            self?.onPartialText?(text)
+        }
         self.session = voiceSession
         self.screenContext = nil
 
