@@ -34,6 +34,27 @@ Hold Right Option
       → sync to GPU server → QLoRA fine-tune → better model
 ```
 
+## Remote Voice（远程语音输入）
+
+Windows 端按热键说话 → 音频通过 Tailscale 私网发送到 Mac → WE 识别并注入文字到光标处。
+
+**Mac 端**：WE 启动后自动监听 :9800，不需要额外操作。确保 config.json 中：
+
+```json
+{
+  "remote": { "enabled": true, "port": 9800, "auth_token": "" }
+}
+```
+
+**Windows 端**（需安装 [Marvin Tailscale](https://github.com/Marvinngg/tailscale/releases)）：
+
+```bash
+tailscale voice setup --target 100.64.0.10:9800   # 首次设置，之后开机自启
+tailscale voice                                     # 手动运行
+```
+
+按住右 Alt 说话，松开发送。
+
 ## Config
 
 `~/.we/config.json` — hot-reloads on save.
