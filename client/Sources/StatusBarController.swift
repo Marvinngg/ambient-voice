@@ -7,6 +7,7 @@ final class StatusBarController {
     private let config = RuntimeConfig.shared
 
     private var isRecording = false
+    private var remoteStatus: RemoteInbox.Status = .idle
 
     // 会议模式
     private var meetingSession: MeetingSession?
@@ -29,6 +30,11 @@ final class StatusBarController {
     func setRecording(_ recording: Bool) {
         isRecording = recording
         updateIcon()
+    }
+
+    func setRemoteStatus(_ status: RemoteInbox.Status) {
+        remoteStatus = status
+        setupMenu()
     }
 
     private func updateIcon() {
@@ -91,6 +97,14 @@ final class StatusBarController {
             )
             startMeeting.target = self
             menu.addItem(startMeeting)
+        }
+
+        // 远程语音
+        if remoteStatus != .idle {
+            menu.addItem(NSMenuItem.separator())
+            let port = RuntimeConfig.shared.remoteConfig["port"] as? Int ?? 9800
+            let remoteItem = NSMenuItem(title: "远程语音：\(remoteStatus.rawValue) (:\(port))", action: nil, keyEquivalent: "")
+            menu.addItem(remoteItem)
         }
 
         menu.addItem(NSMenuItem.separator())

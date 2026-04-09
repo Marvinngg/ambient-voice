@@ -203,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let moduleManager = ModuleManager()
     private let config = RuntimeConfig.shared
     private let recordingIndicator = RecordingIndicator()
+    private let remoteInbox = RemoteInbox()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 初始化数据目录
@@ -242,6 +243,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 启动模型服务器健康检测
         ModelServer.shared.startHealthCheck()
 
+        // 启动远程语音接收
+        let remoteConfig = config.remoteConfig
+        if remoteConfig["enabled"] as? Bool == true {
+            let port = remoteConfig["port"] as? Int ?? 9800
+            let token = remoteConfig["auth_token"] as? String ?? ""
+            remoteInbox.onStatusChange = { [weak self] status in
+                self?.statusBar?.setRemoteStatus(status)
+            }
+            remoteInbox.start(port: UInt16(port), authToken: token)
+            Logger.log("WE", "Remote inbox: ON (:\(port))")
+        }
+
         // G1 ambient 模式（config 控制开关）
         if config.ambientEnabled {
             let ambient = AmbientController.shared
@@ -267,6 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.stop()
         AmbientController.shared.stop()
         ModelServer.shared.stopHealthCheck()
+        remoteInbox.stop()
         Logger.log("WE", "App terminated")
     }
 }

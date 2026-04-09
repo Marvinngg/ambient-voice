@@ -30,6 +30,11 @@ final class RuntimeConfig {
         values["downloads"] as? [String: Any] ?? [:]
     }
 
+    /// 远程语音接收配置
+    var remoteConfig: [String: Any] {
+        values["remote"] as? [String: Any] ?? [:]
+    }
+
     private init() {
         self.configURL = WEDataDir.url.appendingPathComponent("config.json")
         load()
@@ -62,7 +67,12 @@ final class RuntimeConfig {
                     "server": "",
                     "remote_dir": "~/we-data"
                 ],
-                "downloads": [:]
+                "downloads": [:],
+                "remote": [
+                    "enabled": true,
+                    "port": 9800,
+                    "auth_token": ""
+                ]
             ]
             values = defaults
             save()
