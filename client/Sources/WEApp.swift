@@ -169,7 +169,7 @@ enum MeetingBenchmark {
     }
 
     static func formatResult(_ result: MeetingResult, totalTime: Double, mdPath: String?) -> [String: Any] {
-        var json: [String: Any] = [
+        let json: [String: Any] = [
             "audio": result.audioPath ?? "",
             "duration_s": round(result.duration * 100) / 100,
             "total_processing_s": round(totalTime * 100) / 100,
@@ -221,13 +221,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let voiceModule = VoiceModule()
         voiceModule.onStateChange = { [weak self] state in
             guard let self else { return }
-            let recording = state == .recording
-            self.statusBar?.setRecording(recording)
-            if recording {
+            self.statusBar?.setRecording(state == .recording)
+            switch state {
+            case .recording:
                 self.recordingIndicator.show()
-            } else {
+                self.recordingIndicator.setState(.listening)
+            case .idle:
                 self.recordingIndicator.hide()
+            case .processing:
+                self.recordingIndicator.setState(.processing)
             }
+        }
+        voiceModule.onPartialText = { [weak self] text in
+            self?.recordingIndicator.updateText(text)
         }
         moduleManager.register(voiceModule)
 

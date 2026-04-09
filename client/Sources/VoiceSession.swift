@@ -48,7 +48,6 @@ final class VoiceSession {
     private var finalizedText = ""
     private var volatileText = ""
     private var allWords: [WordInfo] = []
-    /// 整句级 alternatives 累积（每个 final segment 的所有候选）
     private var allAlternatives: [[String]] = []
 
     /// 识别完成时的回调
@@ -78,6 +77,7 @@ final class VoiceSession {
         finalizedText = ""
         volatileText = ""
         allWords = []
+        allAlternatives = []
 
         // 1. 查找最佳中文 locale
         let bestLocale = await findChineseLocale()
@@ -86,12 +86,13 @@ final class VoiceSession {
         }
         Logger.log("Voice", "Using locale: \(bestLocale.identifier(.bcp47))")
 
-        // 2. 配置 SpeechTranscriber（含 volatile + alternatives）
+        // 2. 配置 SpeechTranscriber
+        // 采用 Apple 官方 progressive live preset：
+        // fastResults + volatileResults + audioTimeRange
+        // 先优先保证低延迟流式输出，放弃对 live 路径非关键的 confidence 属性。
         let transcriber = SpeechTranscriber(
             locale: bestLocale,
-            transcriptionOptions: [],
-            reportingOptions: [.volatileResults, .alternativeTranscriptions],
-            attributeOptions: [.audioTimeRange, .transcriptionConfidence]
+            preset: .timeIndexedProgressiveTranscription
         )
         self.transcriber = transcriber
 
@@ -111,10 +112,7 @@ final class VoiceSession {
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
         self.inputBuilder = inputBuilder
 
-        // 6. 启动分析器
-        try await analyzer.start(inputSequence: inputSequence)
-
-        // 7. 启动结果处理任务
+        // 6. 先启动结果处理（确保在分析开始前就准备好接收）
         resultTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
@@ -124,11 +122,11 @@ final class VoiceSession {
                     if result.isFinal {
                         self.finalizedText += text
                         self.volatileText = ""
+                        self.onPartialResult?(self.finalizedText)
 
                         let words = self.extractWords(from: result.text)
                         self.allWords.append(contentsOf: words)
 
-                        // 收集整句级 alternatives
                         let alts = result.alternatives.map { String($0.characters) }
                         self.allAlternatives.append(alts)
 
@@ -148,6 +146,9 @@ final class VoiceSession {
                 Logger.log("Voice", "Result stream error: \(error)")
             }
         }
+
+        // 7. 启动实时分析（立即返回，结果实时流出到 resultTask）
+        try await analyzer.start(inputSequence: inputSequence)
 
         // 8. 准备音频文件
         let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
@@ -212,11 +213,11 @@ final class VoiceSession {
         captureDelegate?.close()
         captureDelegate = nil
 
-        // 告诉分析器音频结束
+        // 结束输入流 → analyzeSequence 返回
         inputBuilder?.finish()
-        Logger.log("Voice", "Input stream finished, waiting for analyzer...")
+        Logger.log("Voice", "Input stream finished, finalizing...")
 
-        // 等待分析器完成（带超时）
+        // 最终化分析结果
         do {
             try await withThrowingTimeout(seconds: 5) {
                 try await self.analyzer?.finalizeAndFinishThroughEndOfInput()
@@ -226,12 +227,12 @@ final class VoiceSession {
             Logger.log("Voice", "Finalize timeout/error: \(error)")
         }
 
-        // 给 resultTask 短暂时间处理最终结果，然后强制取消
+        // 给 resultTask 短暂时间处理最终结果
         Logger.log("Voice", "Waiting briefly for results...")
         try? await Task.sleep(for: .milliseconds(500))
         resultTask?.cancel()
         resultTask = nil
-        Logger.log("Voice", "Result task cancelled")
+        Logger.log("Voice", "Result task done")
 
         let fullText = finalizedText + volatileText
         isRunning = false
