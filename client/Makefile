@@ -7,7 +7,7 @@ APP_MACOS = $(APP_CONTENTS)/MacOS
 # 安装相关变量
 INSTALL_DIR = $(HOME)/Applications
 INSTALL_APP = $(INSTALL_DIR)/WE.app
-CERT_NAME = Apple Development
+CERT_NAME = WE Dev Signing
 LAUNCHD_LABEL = com.antigravity.we
 LAUNCHD_PLIST = ~/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
 

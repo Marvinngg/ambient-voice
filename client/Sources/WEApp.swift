@@ -90,7 +90,8 @@ enum MeetingBenchmark {
         print("Audio: \(wavPath)")
         print("Locale: \(locale)")
 
-        let session = MeetingSession()
+        let meetingConfig = WEConfig.MeetingConfig.default
+        let session = MeetingSession(config: meetingConfig)
         let startTime = CFAbsoluteTimeGetCurrent()
         let result = await session.runFromFile(fileURL, locale: locale)
         let totalTime = CFAbsoluteTimeGetCurrent() - startTime
@@ -128,6 +129,7 @@ enum MeetingBenchmark {
         try? FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
 
         let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        let meetingConfig = WEConfig.MeetingConfig.default
         print("Manifest: \(manifest) (\(lines.count) files)")
         print("Output: \(outputDir)/\n")
 
@@ -146,7 +148,7 @@ enum MeetingBenchmark {
             fflush(stdout)
 
             let fileURL = URL(fileURLWithPath: audioPath)
-            let session = MeetingSession()
+            let session = MeetingSession(config: meetingConfig)
             let startTime = CFAbsoluteTimeGetCurrent()
             let result = await session.runFromFile(fileURL, locale: entryLocale)
             let totalTime = CFAbsoluteTimeGetCurrent() - startTime
@@ -231,6 +233,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         moduleManager.register(voiceModule)
 
+        // 初始化 VoicePipeline（加载 replacements + polishClient）
+        let weConfig = WEConfig.load()
+        let serverConfig = config.serverConfig
+        let endpoint = serverConfig["endpoint"] as? String ?? "http://localhost:11434"
+        let model = serverConfig["model"] as? String ?? "qwen3:0.6b"
+        VoicePipeline.configure(config: weConfig, localClient: LocalModelClient(endpoint: endpoint, model: model))
+
         // 注册全局热键
         GlobalHotKey.shared.onPress = { [weak self] in
             self?.moduleManager.activeModule?.onHotKeyDown()
@@ -266,7 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ambient.onSpeechEnd = { [weak self] in
                 guard let vm = self?.moduleManager.activeModule as? VoiceModule,
                       vm.state == .recording else { return }
-                vm.onHotKeyDown()  // 复用热键流程：停止并处理
+                vm.onHotKeyUp()  // 复用热键流程：停止并处理
             }
             ambient.start()
             Logger.log("WE", "Ambient mode: ON")

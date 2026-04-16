@@ -1,7 +1,7 @@
 import Cocoa
 import CoreGraphics
 
-/// 全局热键：Right Option toggle
+/// 全局热键：Right Command toggle
 /// 使用 CGEventTap 替代 NSEvent monitor，避免 macOS 26 下
 /// AppKit GlobalObserverHandler 的 Swift actor runtime crash (Bus error)
 final class GlobalHotKey: @unchecked Sendable {
@@ -37,7 +37,8 @@ final class GlobalHotKey: @unchecked Sendable {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        Logger.log("HotKey", "Global hotkey started (CGEventTap, Right Option)")
+        let axTrusted = AXIsProcessTrusted()
+        Logger.log("HotKey", "Global hotkey started (CGEventTap, Right Command) AX=\(axTrusted)")
     }
 
     @MainActor
@@ -57,21 +58,25 @@ final class GlobalHotKey: @unchecked Sendable {
     }
 
     fileprivate func handleFlags(_ flags: CGEventFlags, keyCode: Int64) {
-        let optionDown = flags.contains(.maskAlternate)
-        let isRightOption = keyCode == 61
+        // Debug: log all modifier key events to find the right keyCode
+        if flags.contains(.maskCommand) || flags.contains(.maskAlternate) {
+            Logger.log("HotKey", "Flags event: keyCode=\(keyCode), cmd=\(flags.contains(.maskCommand)), opt=\(flags.contains(.maskAlternate))")
+        }
+        let cmdDown = flags.contains(.maskCommand)
+        let isRightCmd = keyCode == 54  // Right Command keyCode
 
-        if optionDown && isRightOption && !isPressed {
+        if cmdDown && isRightCmd && !isPressed {
             isPressed = true
-            Logger.log("HotKey", "Right Option DOWN")
+            Logger.log("HotKey", "Right Command DOWN")
             // CGEventTap 回调虽在主线程但不在 GCD/Swift actor 上下文中，
             // 直接调用 @MainActor 代码会触发 runtime actor check crash。
             // DispatchQueue.main.async 让 Swift runtime 能识别 MainActor。
             if let onPress {
                 DispatchQueue.main.async { onPress() }
             }
-        } else if !optionDown && isPressed {
+        } else if !cmdDown && isPressed {
             isPressed = false
-            Logger.log("HotKey", "Right Option UP")
+            Logger.log("HotKey", "Right Command UP")
             if let onRelease {
                 DispatchQueue.main.async { onRelease() }
             }
@@ -98,6 +103,7 @@ private func globalHotKeyCallback(
 
     // 超时或用户禁用后自动重新启用
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+        Logger.log("HotKey", "Tap disabled (type=\(type.rawValue)), re-enabling...")
         if let tap = hotkey.eventTap {
             CGEvent.tapEnable(tap: tap, enable: true)
         }
