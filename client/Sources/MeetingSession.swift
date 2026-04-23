@@ -3,10 +3,33 @@ import CoreMedia
 import FluidAudio
 import Speech
 
+// MARK: - 音频采集模式
+
+/// 会议模式下的音频来源选择
+enum AudioSourceMode: String {
+    /// 仅麦克风（默认，兼容旧行为）
+    case mic
+    /// 仅系统音频输出（Zoom/腾讯会议远端声音），需要屏幕录制权限
+    case system
+    /// 麦克风 + 系统音频混合（推荐用于线上会议）
+    case both
+
+    init(configValue: String?) {
+        switch configValue?.lowercased() {
+        case "system": self = .system
+        case "both":   self = .both
+        default:       self = .mic
+        }
+    }
+
+    var needsMicrophone: Bool { self == .mic || self == .both }
+    var needsSystemAudio: Bool { self == .system || self == .both }
+}
+
 // MARK: - 会议录音会话
 
 /// 长时间会议录音，支持连续转写 + 批量说话人分离
-/// 音频采集复用 VoiceSession 的 AVCaptureSession 方案（兼容蓝牙设备）
+/// 音频采集支持三种模式：仅麦克风 / 仅系统音频（ScreenCaptureKit）/ 两者混合
 /// 转写用 SpeechAnalyzer 实时流式处理，分离在录音结束后批量执行
 @MainActor
 final class MeetingSession {
@@ -29,6 +52,9 @@ final class MeetingSession {
 
     private var captureSession: AVCaptureSession?
     private var captureDelegate: MeetingCaptureDelegate?
+    private var systemAudioCapture: SystemAudioCapture?
+    private var mixer: AudioMixer?
+    private var audioMode: AudioSourceMode = .mic
 
     // MARK: - SpeechAnalyzer 转写
 
@@ -218,12 +244,19 @@ final class MeetingSession {
         }
     }
 
-    // MARK: - 麦克风启动（正常使用）
+    // MARK: - 启动（正常使用）
 
     func start() async throws {
         guard !isRunning else { return }
 
-        guard VoiceSession.isAuthorized else {
+        // 读取音频来源模式（mic / system / both），默认 mic 兼容旧行为
+        let mode = AudioSourceMode(
+            configValue: RuntimeConfig.shared.meetingConfig["audio_source"] as? String
+        )
+        audioMode = mode
+        Logger.log("Meeting", "Audio source mode: \(mode.rawValue)")
+
+        if mode.needsMicrophone, !VoiceSession.isAuthorized {
             throw VoiceError.notAuthorized
         }
 
@@ -303,25 +336,19 @@ final class MeetingSession {
         let url = WEDataDir.url.appendingPathComponent("audio/\(fileName).wav")
         audioFileURL = url
 
-        // 9. 启动 AVCaptureSession
-        guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
-            throw VoiceError.noAudioDevice
-        }
-        Logger.log("Meeting", "Audio device: \(audioDevice.localizedName)")
+        // 9. 配置音频采集（按模式分支）
 
-        let session = AVCaptureSession()
-        let deviceInput = try AVCaptureDeviceInput(device: audioDevice)
-        session.addInput(deviceInput)
+        // 仅在 .both 模式下需要混合器：麦克风做主时钟，系统音频样本从队列中弹出求和
+        let mixer: AudioMixer? = (mode == .both) ? AudioMixer() : nil
+        self.mixer = mixer
 
-        let audioOutput = AVCaptureAudioDataOutput()
-        let captureQueue = DispatchQueue(label: "com.antigravity.we.meeting-capture")
-
-        // 创建 delegate，分叉音频到转写 + 分离缓冲
+        // 创建共享的 delegate（送 SpeechAnalyzer + 分离 + WAV 文件）
         let delegate = MeetingCaptureDelegate(
             inputBuilder: inputBuilder,
             analyzerFormat: analyzerFormat,
             audioFileURL: url,
             diarizationSampleRate: diarizationSampleRate,
+            mixer: mixer,
             onDiarizationSamples: { [weak self] samples in
                 // 回调在后台队列，通过 DispatchQueue.main 桥接到 MainActor
                 DispatchQueue.main.async {
@@ -329,13 +356,60 @@ final class MeetingSession {
                 }
             }
         )
-        audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
-        session.addOutput(audioOutput)
-
         self.captureDelegate = delegate
-        self.captureSession = session
 
-        session.startRunning()
+        // 9a. 麦克风采集（.mic / .both）
+        if mode.needsMicrophone {
+            guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
+                throw VoiceError.noAudioDevice
+            }
+            Logger.log("Meeting", "Audio device: \(audioDevice.localizedName)")
+
+            let session = AVCaptureSession()
+            let deviceInput = try AVCaptureDeviceInput(device: audioDevice)
+            session.addInput(deviceInput)
+
+            let audioOutput = AVCaptureAudioDataOutput()
+            let captureQueue = DispatchQueue(label: "com.antigravity.we.meeting-capture")
+            audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
+            session.addOutput(audioOutput)
+
+            session.startRunning()
+            self.captureSession = session
+        }
+
+        // 9b. 系统音频采集（.system / .both）
+        if mode.needsSystemAudio {
+            let systemCapture = SystemAudioCapture()
+            self.systemAudioCapture = systemCapture
+
+            if mode == .system {
+                // 仅系统音频：直接喂给 delegate 走完整 SA + WAV + 分离流程
+                systemCapture.onSampleBuffer = { [weak delegate] buffer in
+                    delegate?.handleSystemSampleBuffer(buffer)
+                }
+            } else {
+                // .both：系统音频转为 16kHz Float32 mono 后推入混合器队列
+                let sysConverter = MonoFloat32Converter(targetSampleRate: diarizationSampleRate)
+                systemCapture.onSampleBuffer = { [weak mixer] buffer in
+                    guard let mixer, let samples = sysConverter.convert(buffer) else { return }
+                    mixer.pushSystemSamples(samples)
+                }
+            }
+
+            do {
+                try await systemCapture.start()
+            } catch {
+                Logger.log("Meeting", "System audio capture failed: \(error)")
+                // 系统音频不可用时的降级策略：.system 直接抛出；.both 降级为仅 mic
+                if mode == .system {
+                    throw error
+                }
+                self.systemAudioCapture = nil
+                self.mixer = nil
+            }
+        }
+
         isRunning = true
         startDate = Date()
 
@@ -370,6 +444,12 @@ final class MeetingSession {
         // 停止音频采集
         captureSession?.stopRunning()
         captureSession = nil
+        if let systemAudioCapture {
+            await systemAudioCapture.stop()
+        }
+        systemAudioCapture = nil
+        mixer?.drain()
+        mixer = nil
         captureDelegate?.close()
         captureDelegate = nil
 
@@ -584,22 +664,27 @@ final class MeetingSession {
 
 // MARK: - 会议音频采集代理
 
-/// 从 AVCaptureSession 接收音频，分叉到：
+/// 从音频源（AVCaptureSession 麦克风 / SCStream 系统音频）接收音频，分叉到：
 /// 1. SpeechAnalyzer（实时转写）
 /// 2. diarization buffer（16kHz Float32 mono 累积）
 /// 3. WAV 文件（持久化）
+///
+/// 当 mixer != nil 时（.both 模式），每个输入 buffer 会与 mixer 中已入队的系统音频
+/// 样本做逐样本相加，再走后续三条分支。麦克风作为主时钟驱动输出节奏。
 final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
     private let audioFileURL: URL
     private let diarizationSampleRate: Int
     private let onDiarizationSamples: ([Float]) -> Void
+    private let mixer: AudioMixer?
 
     // 格式转换器
     private var analyzerConverter: AVAudioConverter?
     private var diarizationConverter: AVAudioConverter?
+    private var mixerInputConverter: AVAudioConverter?
 
-    // 分离目标格式：16kHz Float32 mono
+    // 分离目标格式：16kHz Float32 mono（.both 模式下也用作混合的中间格式）
     private lazy var diarizationFormat: AVAudioFormat? = {
         AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -621,12 +706,14 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         analyzerFormat: AVAudioFormat?,
         audioFileURL: URL,
         diarizationSampleRate: Int,
+        mixer: AudioMixer? = nil,
         onDiarizationSamples: @escaping ([Float]) -> Void
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
         self.diarizationSampleRate = diarizationSampleRate
+        self.mixer = mixer
         self.onDiarizationSamples = onDiarizationSamples
         super.init()
     }
@@ -635,10 +722,19 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         finalizeWAV()
     }
 
+    // AVCaptureSession 麦克风路径
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        handleSampleBuffer(sampleBuffer)
+    }
+
+    /// 由 SystemAudioCapture 直接调用（.system 模式下无 AVCaptureSession）
+    func handleSystemSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        handleSampleBuffer(sampleBuffer)
+    }
+
+    private func handleSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
         bufferCount += 1
 
-        // CMSampleBuffer → AVAudioPCMBuffer（复用 VoiceSession 的扩展方法）
         guard let pcmBuffer = sampleBuffer.toPCMBuffer() else {
             if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): CMSampleBuffer conversion failed") }
             return
@@ -648,24 +744,36 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             Logger.log("Meeting", "Audio #\(bufferCount): \(pcmBuffer.frameLength) frames, fmt=\(pcmBuffer.format)")
         }
 
+        // .both 模式：先把当前 buffer（麦克风）与 mixer 中的系统音频样本相加
+        let processedBuffer: AVAudioPCMBuffer
+        if let mixer {
+            guard let mixed = mixWithSystemAudio(micBuffer: pcmBuffer, mixer: mixer) else {
+                return
+            }
+            processedBuffer = mixed
+        } else {
+            processedBuffer = pcmBuffer
+        }
+
         // --- 分支1: 送 SpeechAnalyzer（可能需要格式转换）---
         let analyzerBuffer: AVAudioPCMBuffer
         if let targetFormat = analyzerFormat,
-           pcmBuffer.format.sampleRate != targetFormat.sampleRate
-            || pcmBuffer.format.commonFormat != targetFormat.commonFormat {
+           processedBuffer.format.sampleRate != targetFormat.sampleRate
+            || processedBuffer.format.commonFormat != targetFormat.commonFormat
+            || processedBuffer.format.channelCount != targetFormat.channelCount {
 
             if analyzerConverter == nil {
-                analyzerConverter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
-                Logger.log("Meeting", "Analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
+                analyzerConverter = AVAudioConverter(from: processedBuffer.format, to: targetFormat)
+                Logger.log("Meeting", "Analyzer converter: \(processedBuffer.format) → \(targetFormat)")
             }
             guard let converter = analyzerConverter,
-                  let converted = convert(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+                  let converted = convert(buffer: processedBuffer, using: converter, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): analyzer conversion failed") }
                 return
             }
             analyzerBuffer = converted
         } else {
-            analyzerBuffer = pcmBuffer
+            analyzerBuffer = processedBuffer
         }
 
         // 送 SpeechAnalyzer
@@ -678,21 +786,21 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         // --- 分支2: 送分离缓冲区（16kHz Float32 mono）---
         if let diaFmt = diarizationFormat {
             let diaBuffer: AVAudioPCMBuffer
-            if pcmBuffer.format.sampleRate != diaFmt.sampleRate
-                || pcmBuffer.format.commonFormat != diaFmt.commonFormat
-                || pcmBuffer.format.channelCount != diaFmt.channelCount {
+            if processedBuffer.format.sampleRate != diaFmt.sampleRate
+                || processedBuffer.format.commonFormat != diaFmt.commonFormat
+                || processedBuffer.format.channelCount != diaFmt.channelCount {
 
                 if diarizationConverter == nil {
-                    diarizationConverter = AVAudioConverter(from: pcmBuffer.format, to: diaFmt)
-                    Logger.log("Meeting", "Diarization converter: \(pcmBuffer.format) → \(diaFmt)")
+                    diarizationConverter = AVAudioConverter(from: processedBuffer.format, to: diaFmt)
+                    Logger.log("Meeting", "Diarization converter: \(processedBuffer.format) → \(diaFmt)")
                 }
                 guard let converter = diarizationConverter,
-                      let converted = convert(buffer: pcmBuffer, using: converter, to: diaFmt) else {
+                      let converted = convert(buffer: processedBuffer, using: converter, to: diaFmt) else {
                     return
                 }
                 diaBuffer = converted
             } else {
-                diaBuffer = pcmBuffer
+                diaBuffer = processedBuffer
             }
 
             // 提取 Float32 样本
@@ -702,6 +810,55 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                 onDiarizationSamples(samples)
             }
         }
+    }
+
+    /// 把麦克风 buffer 转到 16kHz Float32 mono，与 mixer 中等量系统样本逐样本相加
+    /// 返回的 buffer 格式为 diarizationFormat（16kHz Float32 mono）
+    private func mixWithSystemAudio(micBuffer: AVAudioPCMBuffer, mixer: AudioMixer) -> AVAudioPCMBuffer? {
+        guard let diaFmt = diarizationFormat else { return micBuffer }
+
+        // 1. 把麦克风 buffer 转为 16kHz Float32 mono
+        let micMono: AVAudioPCMBuffer
+        if micBuffer.format.sampleRate == diaFmt.sampleRate
+            && micBuffer.format.commonFormat == diaFmt.commonFormat
+            && micBuffer.format.channelCount == diaFmt.channelCount {
+            micMono = micBuffer
+        } else {
+            if mixerInputConverter == nil {
+                mixerInputConverter = AVAudioConverter(from: micBuffer.format, to: diaFmt)
+                Logger.log("Meeting", "Mixer mic converter: \(micBuffer.format) → \(diaFmt)")
+            }
+            guard let converter = mixerInputConverter,
+                  let converted = convert(buffer: micBuffer, using: converter, to: diaFmt) else {
+                return nil
+            }
+            micMono = converted
+        }
+
+        let count = Int(micMono.frameLength)
+        guard count > 0, let micData = micMono.floatChannelData?[0] else {
+            return micMono
+        }
+
+        // 2. 从 mixer 取等量系统样本（不足补 0）
+        let sysSamples = mixer.popSystemSamples(count: count)
+
+        // 3. 求和并硬限幅到 [-1, 1]
+        guard let mixed = AVAudioPCMBuffer(pcmFormat: diaFmt, frameCapacity: AVAudioFrameCount(count)),
+              let mixedData = mixed.floatChannelData?[0] else {
+            return micMono
+        }
+        mixed.frameLength = AVAudioFrameCount(count)
+
+        sysSamples.withUnsafeBufferPointer { sysPtr in
+            guard let sysBase = sysPtr.baseAddress else { return }
+            for i in 0..<count {
+                let sum = micData[i] + sysBase[i]
+                mixedData[i] = max(-1.0, min(1.0, sum))
+            }
+        }
+
+        return mixed
     }
 
     // MARK: - WAV 手动写入

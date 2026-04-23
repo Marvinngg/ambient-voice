@@ -35,6 +35,15 @@ final class RuntimeConfig {
         values["remote"] as? [String: Any] ?? [:]
     }
 
+    /// 会议模式配置
+    /// audio_source: "mic"（默认）| "system" | "both"
+    ///   - mic: 仅麦克风（当前行为，兼容在线会议中自己这一侧的声音）
+    ///   - system: 仅系统输出（腾讯会议/Zoom 对方的声音；需要屏幕录制权限）
+    ///   - both: 麦克风 + 系统音频混合（推荐用于线上会议）
+    var meetingConfig: [String: Any] {
+        values["meeting"] as? [String: Any] ?? [:]
+    }
+
     private init() {
         self.configURL = WEDataDir.url.appendingPathComponent("config.json")
         load()
@@ -66,6 +75,9 @@ final class RuntimeConfig {
                     "enabled": false,
                     "server": "",
                     "remote_dir": "~/we-data"
+                ],
+                "meeting": [
+                    "audio_source": "mic"
                 ],
                 "downloads": [:],
                 "remote": [
