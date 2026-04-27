@@ -12,12 +12,13 @@ WE 是一个本地语音转写 + 智能纠错的 macOS 工具。
 1) 把 WE.app 拖到「应用程序」文件夹
 
 2) 打开「终端」应用（聚焦 → 输入 Terminal），
-   复制粘贴下面这一行命令并按回车：
+   复制粘贴下面这两行命令并按回车：
 
    xattr -cr /Applications/WE.app
+   /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/WE.app
 
-   这一步是清除 macOS 给"网络下载文件"打的隔离标记，
-   让系统不再因为「无法验证开发者」而阻止启动。
+   第一行：清除 macOS 给"网络下载文件"打的隔离标记，让系统不再因为「无法验证开发者」而阻止启动。
+   第二行：强制 LaunchServices 注册 app（否则 TCC 系统可能不认这个 bundle，导致麦克风权限弹窗不出现）。
 
 3) 双击启动 /Applications/WE.app
 

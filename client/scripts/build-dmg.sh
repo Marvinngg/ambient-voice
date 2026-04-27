@@ -45,10 +45,19 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
 cp "$BUILD_DIR/release/WE" "$APP_MACOS/WE"
 cp "$INFO_PLIST" "$APP_CONTENTS/Info.plist"
+# PkgInfo: macOS LaunchServices 用它识别 bundle 类型（type=APPL/creator=????）
+# 没有这个文件 LaunchServices 可能不注册 bundle id，导致 TCC 找不到 app，
+# 麦克风/语音识别等权限弹窗永远不出现。
+printf 'APPL????' > "$APP_CONTENTS/PkgInfo"
 
-# 4) ad-hoc 签名（每个 release 重签 hash 会变；用户需用 xattr -cr 清除 quarantine）
+# 4) ad-hoc 签名
+# 注意：不加 --options runtime（hardened runtime）。理由：
+#   ad-hoc 签名无法附带 entitlements，hardened runtime 会强制要求
+#   com.apple.security.device.audio-input 等 entitlement，否则直接拒绝
+#   麦克风访问（连权限弹窗都不弹）。Info.plist 的 NSMicrophoneUsageDescription
+#   在 hardened runtime 下不够用。未来要做 notarization 时配合 entitlements 一起加回。
 echo "[3/5] Codesigning (ad-hoc)..."
-codesign --force --deep --sign - --options runtime "$APP_BUNDLE"
+codesign --force --deep --sign - "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE" || {
     echo "ERROR: codesign verification failed"
     exit 1
