@@ -28,6 +28,18 @@ struct WEApp {
             return
         }
 
+        // 截断测试：WE --test-truncation <wav-file> [--locale zh-CN]
+        if CommandLine.arguments.contains("--test-truncation") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            Task {
+                await TruncationTest.run()
+                app.terminate(nil)
+            }
+            app.run()
+            return
+        }
+
         // 评估模式：WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
         if CommandLine.arguments.contains("--bench-meeting") {
             let app = NSApplication.shared

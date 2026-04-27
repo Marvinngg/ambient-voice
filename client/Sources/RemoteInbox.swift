@@ -177,6 +177,8 @@ final class RemoteInbox {
             onStatusChange?(.listening)
         }
 
+        let tStart = CFAbsoluteTimeGetCurrent()
+
         // 1. 写临时文件
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let tempURL = WEDataDir.url.appendingPathComponent("audio/remote-\(timestamp).wav")
@@ -197,7 +199,7 @@ final class RemoteInbox {
             let transcriber = SpeechTranscriber(
                 locale: locale,
                 transcriptionOptions: [],
-                reportingOptions: [.alternativeTranscriptions],
+                reportingOptions: [],
                 attributeOptions: [.transcriptionConfidence]
             )
             try await SpeechUtils.ensureModelInstalled(transcriber: transcriber, locale: locale)
@@ -205,10 +207,32 @@ final class RemoteInbox {
             // 3. 创建 SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
+            // 3.5 上下文注入（字典 + OCR），和本地 VoiceSession 路径统一
+            let currentApp = AppIdentity.current()
+            let polish = RuntimeConfig.shared.polishConfig
+            let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
+            let dictPath = polish["context_dictionary_path"] as? String
+            let ocrEnabled = polish["context_ocr_enabled"] as? Bool ?? false
+            let contextWords = await ContextEnhancer.enhance(
+                for: currentApp,
+                dictionaryEnabled: dictEnabled,
+                dictionaryPath: dictPath,
+                ocrEnabled: ocrEnabled
+            )
+            if !contextWords.isEmpty {
+                let ctx = AnalysisContext()
+                ctx.contextualStrings[.general] = contextWords
+                try? await analyzer.setContext(ctx)
+                let preview = contextWords.prefix(5).joined(separator: ", ")
+                let suffix = contextWords.count > 5 ? "..." : ""
+                Logger.log("Remote", "SA context injected \(contextWords.count) terms: [\(preview)\(suffix)]")
+            }
+            let tCtxDone = CFAbsoluteTimeGetCurrent()
+            let ctxMs = Int((tCtxDone - tStart) * 1000)
+
             // 4. 结果收集
             var fullText = ""
             var allWords: [WordInfo] = []
-            var allAlternatives: [[String]] = []
 
             let resultTask = Task {
                 do {
@@ -217,7 +241,6 @@ final class RemoteInbox {
                         if result.isFinal {
                             fullText += text
                             allWords.append(contentsOf: extractWords(from: result.text))
-                            allAlternatives.append(result.alternatives.map { String($0.characters) })
                             Logger.log("Remote", "SA final: \(text.prefix(50))")
                         }
                     }
@@ -228,9 +251,12 @@ final class RemoteInbox {
 
             // 5. 文件输入（MeetingSession 已验证的 API）
             let inputFile = try AVAudioFile(forReading: tempURL)
-            Logger.log("Remote", "Starting SA from file (\(String(format: "%.1f", Double(inputFile.length) / inputFile.processingFormat.sampleRate))s)")
+            let audioDuration = Double(inputFile.length) / inputFile.processingFormat.sampleRate
+            Logger.log("Remote", "Starting SA from file (\(String(format: "%.1f", audioDuration))s)")
             try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
             await resultTask.value
+            let tSADone = CFAbsoluteTimeGetCurrent()
+            let saMs = Int((tSADone - tCtxDone) * 1000)
 
             guard !fullText.isEmpty else {
                 Logger.log("Remote", "Empty transcription, skipping pipeline")
@@ -241,7 +267,6 @@ final class RemoteInbox {
             let transcription = TranscriptionResult(
                 fullText: fullText,
                 words: allWords,
-                segmentAlternatives: allAlternatives,
                 audioPath: tempURL.path,
                 timestamp: Date()
             )
@@ -253,7 +278,9 @@ final class RemoteInbox {
                 targetApp: AppIdentity.current()
             )
 
-            Logger.log("Remote", "Pipeline done, text injected")
+            let totalMs = Int((CFAbsoluteTimeGetCurrent() - tStart) * 1000)
+            let pipelineMs = totalMs - ctxMs - saMs
+            Logger.log("Remote", "Timing: ctx=\(ctxMs)ms sa=\(saMs)ms pipeline=\(pipelineMs)ms remote_total=\(totalMs)ms (audio=\(String(format: "%.1f", audioDuration))s)")
 
         } catch {
             Logger.log("Remote", "Processing error: \(error)")

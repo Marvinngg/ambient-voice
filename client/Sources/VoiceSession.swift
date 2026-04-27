@@ -17,10 +17,6 @@ struct WordInfo: Codable {
 struct TranscriptionResult: Codable {
     let fullText: String
     let words: [WordInfo]
-    /// 每个 segment 的整句级候选列表（二维数组）
-    /// segmentAlternatives[i][0] == 该 segment 的 best text
-    /// segmentAlternatives[i][1..] == 替代解释（按可能性降序）
-    let segmentAlternatives: [[String]]
     let audioPath: String?
     let timestamp: Date
 }
@@ -48,8 +44,6 @@ final class VoiceSession {
     private var finalizedText = ""
     private var volatileText = ""
     private var allWords: [WordInfo] = []
-    /// 整句级 alternatives 累积（每个 final segment 的所有候选）
-    private var allAlternatives: [[String]] = []
 
     /// 识别完成时的回调
     var onResult: ((TranscriptionResult) -> Void)?
@@ -86,11 +80,11 @@ final class VoiceSession {
         }
         Logger.log("Voice", "Using locale: \(bestLocale.identifier(.bcp47))")
 
-        // 2. 配置 SpeechTranscriber（含 volatile + alternatives）
+        // 2. 配置 SpeechTranscriber（volatile 给 UI 实时回显，confidence 给服务端蒸馏用）
         let transcriber = SpeechTranscriber(
             locale: bestLocale,
             transcriptionOptions: [],
-            reportingOptions: [.volatileResults, .alternativeTranscriptions],
+            reportingOptions: [.volatileResults],
             attributeOptions: [.audioTimeRange, .transcriptionConfidence]
         )
         self.transcriber = transcriber
@@ -98,8 +92,9 @@ final class VoiceSession {
         // 3. 确保语音模型已安装
         try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
 
-        // 4. 创建 SpeechAnalyzer
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        // 4. 创建 SpeechAnalyzer（processLifetime 让模型在进程内常驻，避免热键间歇被卸载）
+        let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
+        let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
         self.analyzer = analyzer
 
         // 获取最佳音频格式
@@ -107,11 +102,16 @@ final class VoiceSession {
         self.analyzerFormat = analyzerFormat
         Logger.log("Voice", "Analyzer format: \(analyzerFormat as Any)")
 
-        // 5. 创建 AsyncStream 用于音频输入
+        // 5. 预热模型（首次热键响应从 ~800ms 降到 <100ms）
+        let prepareT0 = CFAbsoluteTimeGetCurrent()
+        try? await analyzer.prepareToAnalyze(in: analyzerFormat)
+        Logger.log("Voice", "prepareToAnalyze took \(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - prepareT0))s")
+
+        // 6. 创建 AsyncStream 用于音频输入
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
         self.inputBuilder = inputBuilder
 
-        // 6. 启动分析器
+        // 7. 启动分析器
         try await analyzer.start(inputSequence: inputSequence)
 
         // 7. 启动结果处理任务
@@ -128,17 +128,7 @@ final class VoiceSession {
                         let words = self.extractWords(from: result.text)
                         self.allWords.append(contentsOf: words)
 
-                        // 收集整句级 alternatives
-                        let alts = result.alternatives.map { String($0.characters) }
-                        self.allAlternatives.append(alts)
-
-                        let altCount = alts.count
-                        Logger.log("Voice", "Final segment: \(text) (\(words.count) words, \(altCount) alternatives)")
-                        if altCount > 1 {
-                            for (i, alt) in alts.enumerated() where alt != text {
-                                Logger.log("Voice", "  alt[\(i)]: \(alt)")
-                            }
-                        }
+                        Logger.log("Voice", "Final segment: \(text) (\(words.count) words)")
                     } else {
                         self.volatileText = text
                         self.onPartialResult?(self.finalizedText + text)
@@ -203,8 +193,11 @@ final class VoiceSession {
     /// 停止录音并等待最终结果
     func stop() async -> TranscriptionResult {
         guard isRunning else {
-            return TranscriptionResult(fullText: "", words: [], segmentAlternatives: [], audioPath: nil, timestamp: Date())
+            return TranscriptionResult(fullText: "", words: [], audioPath: nil, timestamp: Date())
         }
+
+        let stopT0 = CFAbsoluteTimeGetCurrent()
+        let bufferCountBefore = captureDelegate?.bufferCount ?? 0
 
         // 停止音频采集
         captureSession?.stopRunning()
@@ -212,26 +205,37 @@ final class VoiceSession {
         captureDelegate?.close()
         captureDelegate = nil
 
+        let stopT1 = CFAbsoluteTimeGetCurrent()
+        Logger.log("Voice", "[DIAG] stop: capture stopped in \(String(format: "%.3f", stopT1 - stopT0))s, buffers received: \(bufferCountBefore)")
+        Logger.log("Voice", "[DIAG] stop: finalizedText=\(finalizedText.count)字, volatileText=\(volatileText.count)字, words=\(allWords.count)")
+
         // 告诉分析器音频结束
         inputBuilder?.finish()
-        Logger.log("Voice", "Input stream finished, waiting for analyzer...")
+        Logger.log("Voice", "[DIAG] stop: inputBuilder.finish()")
 
         // 等待分析器完成（带超时）
+        let stopT2 = CFAbsoluteTimeGetCurrent()
+        var finalizeTimedOut = false
         do {
             try await withThrowingTimeout(seconds: 5) {
                 try await self.analyzer?.finalizeAndFinishThroughEndOfInput()
             }
-            Logger.log("Voice", "Analyzer finalized")
+            let finalizeTime = CFAbsoluteTimeGetCurrent() - stopT2
+            Logger.log("Voice", "[DIAG] stop: finalize completed in \(String(format: "%.3f", finalizeTime))s")
         } catch {
-            Logger.log("Voice", "Finalize timeout/error: \(error)")
+            let finalizeTime = CFAbsoluteTimeGetCurrent() - stopT2
+            finalizeTimedOut = true
+            Logger.log("Voice", "[DIAG] stop: finalize TIMEOUT/ERROR in \(String(format: "%.3f", finalizeTime))s: \(error)")
         }
 
         // 给 resultTask 短暂时间处理最终结果，然后强制取消
-        Logger.log("Voice", "Waiting briefly for results...")
+        let stopT3 = CFAbsoluteTimeGetCurrent()
+        Logger.log("Voice", "[DIAG] stop: post-finalize finalizedText=\(finalizedText.count)字, volatileText=\(volatileText.count)字")
         try? await Task.sleep(for: .milliseconds(500))
         resultTask?.cancel()
         resultTask = nil
-        Logger.log("Voice", "Result task cancelled")
+        let stopT4 = CFAbsoluteTimeGetCurrent()
+        Logger.log("Voice", "[DIAG] stop: resultTask cancelled, sleep+cancel took \(String(format: "%.3f", stopT4 - stopT3))s")
 
         let fullText = finalizedText + volatileText
         isRunning = false
@@ -240,12 +244,15 @@ final class VoiceSession {
         analyzer = nil
         transcriber = nil
 
+        // 诊断摘要
+        let totalStopTime = CFAbsoluteTimeGetCurrent() - stopT0
+        let lastWordEnd = allWords.last.map { $0.startTime + $0.duration } ?? 0
+        Logger.log("Voice", "[DIAG] stop: SUMMARY | total=\(String(format: "%.3f", totalStopTime))s | timedOut=\(finalizeTimedOut) | finalizedText=\(finalizedText.count)字 | volatileText=\(volatileText.count)字 | fullText=\(fullText.count)字 | lastWordEnd=\(String(format: "%.1f", lastWordEnd))s | words=\(allWords.count)")
         Logger.log("Voice", "Session stopped, text: \(fullText)")
 
         return TranscriptionResult(
             fullText: fullText,
             words: allWords,
-            segmentAlternatives: allAlternatives,
             audioPath: audioFileURL?.path,
             timestamp: Date()
         )
@@ -330,7 +337,7 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
     private var fileHandle: FileHandle?
     private var wavDataSize: UInt32 = 0
     private var wavFormat: AVAudioFormat?
-    private var bufferCount = 0
+    private(set) var bufferCount = 0
 
     init(inputBuilder: AsyncStream<AnalyzerInput>.Continuation, analyzerFormat: AVAudioFormat?, audioFileURL: URL) {
         self.inputBuilder = inputBuilder

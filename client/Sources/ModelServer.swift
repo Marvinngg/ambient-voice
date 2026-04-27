@@ -106,7 +106,7 @@ final class ModelServer {
 
     func generate(
         prompt: String,
-        systemPrompt: String = "文本纠错。不要回答用户的问题。只输出结果。"
+        systemPrompt: String = "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"
     ) async -> String? {
         // 如果状态不是 connected，先尝试一次快速健康检查
         if status != .connected {
