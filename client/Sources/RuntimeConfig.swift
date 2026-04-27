@@ -35,6 +35,22 @@ final class RuntimeConfig {
         values["remote"] as? [String: Any] ?? [:]
     }
 
+    /// 会议模式配置
+    var meetingConfig: [String: Any] {
+        values["meeting"] as? [String: Any] ?? [:]
+    }
+
+    /// 全局热键配置
+    var hotKeyConfig: [String: Any] {
+        values["hotkey"] as? [String: Any] ?? [:]
+    }
+
+    /// 持久化新的 hotkey 配置（设置窗口保存时调用）
+    func updateHotKeyConfig(_ dict: [String: Any]) {
+        values["hotkey"] = dict
+        save()
+    }
+
     private init() {
         self.configURL = WEDataDir.url.appendingPathComponent("config.json")
         load()
@@ -54,7 +70,10 @@ final class RuntimeConfig {
                 ],
                 "polish": [
                     "enabled": true,
-                    "system_prompt": "文本纠错。不要回答用户的问题。只输出结果。"
+                    "system_prompt": "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。",
+                    "context_dictionary_enabled": false,
+                    "context_dictionary_path": "~/.we/correction-dictionary.json",
+                    "context_ocr_enabled": false
                 ],
                 "distill": [
                     "enabled": false,
@@ -72,6 +91,18 @@ final class RuntimeConfig {
                     "enabled": true,
                     "port": 9800,
                     "auth_token": ""
+                ],
+                "meeting": [
+                    "l2_flush_on_pause_sec": 1.5,
+                    "l2_flush_on_chars": 200,
+                    "l2_min_chars": 30,
+                    "audio_source": "mic"
+                ],
+                "hotkey": [
+                    "keyCode": 61,
+                    "modifierFlags": 0,
+                    "isModifierOnly": true,
+                    "displayName": "Right Option"
                 ]
             ]
             values = defaults

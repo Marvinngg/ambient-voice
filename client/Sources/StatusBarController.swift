@@ -110,6 +110,18 @@ final class StatusBarController {
         menu.addItem(NSMenuItem.separator())
 
         // 配置与数据
+        let hotkeyTitle: String = {
+            let cfg = HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig)
+            return "设置热键... (\(cfg.displayName))"
+        }()
+        let hotkeyItem = NSMenuItem(
+            title: hotkeyTitle,
+            action: #selector(openHotKeySettings),
+            keyEquivalent: ""
+        )
+        hotkeyItem.target = self
+        menu.addItem(hotkeyItem)
+
         let configItem = NSMenuItem(
             title: "编辑配置文件...",
             action: #selector(openConfig),
@@ -190,9 +202,11 @@ final class StatusBarController {
                 wordCount += text.count
                 let segment = MeetingSegment(
                     text: text,
+                    rawText: text,
                     startTime: self.meetingSession?.duration ?? 0,
                     endTime: self.meetingSession?.duration ?? 0,
                     speakerId: nil,
+                    l2Kind: .skipped,
                     isFinal: true
                 )
                 self.transcriptPanel.appendSegment(segment)
@@ -265,6 +279,10 @@ final class StatusBarController {
         } else if !isRecording {
             updateIcon()
         }
+    }
+
+    @objc private func openHotKeySettings() {
+        HotKeySettingsWindow.shared.show()
     }
 
     @objc private func openConfig() {
