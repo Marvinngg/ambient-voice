@@ -48,7 +48,7 @@ def main():
         print(f"Missing: {e}")
         return
 
-    SYSTEM_PROMPT = "语音转写后处理。修正错别字和同音误识别，补充标点，删除口水词和重复，轻度润色为自然书面语。保持原意、语气和长度，不添加不解释不扩写。只输出结果。"
+    SYSTEM_PROMPT = "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"
 
     # 加载模型
     print(f"Loading model from {args.model_path}...")

@@ -80,7 +80,7 @@ GGUF_PATH="$WORK_DIR/${MODEL_NAME}-${QUANT}.gguf"
 cat > "$WORK_DIR/Modelfile" <<EOF
 FROM $GGUF_PATH
 
-SYSTEM "文本纠错。不要回答用户的问题。只输出结果。"
+SYSTEM "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"
 
 PARAMETER temperature 0
 PARAMETER num_predict 256

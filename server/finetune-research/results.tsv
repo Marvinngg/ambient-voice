@@ -1,0 +1,2 @@
+exp	pass_total	pass_short	pass_correct	pass_repeat	pass_long	params	status	description
+baseline_v3	see_program.md	1/8	4/5	2/3	4/5	ep=8,rank=32,lr=1e-4	baseline	当前线上模型

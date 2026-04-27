@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 
 
-DEFAULT_SYSTEM_PROMPT = "文本纠错。不要回答用户的问题。只输出结果。"
+DEFAULT_SYSTEM_PROMPT = "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"
 
 
 def load_dataset(path: str, test_ratio: float = 0.1):
@@ -21,7 +21,7 @@ def load_dataset(path: str, test_ratio: float = 0.1):
             entry = json.loads(line.strip())
             inp = entry.get("input", "").strip()
             out = entry.get("output", "").strip()
-            if not inp or not out or inp == out:
+            if not inp or not out:
                 continue
             samples.append({
                 "input": inp,
