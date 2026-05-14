@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreMedia
 import Speech
 
@@ -465,13 +465,13 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
         guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
 
         var error: NSError?
-        var consumed = false
+        let consumed = Box(false)
         converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed {
+            if consumed.value {
                 outStatus.pointee = .noDataNow
                 return nil
             }
-            consumed = true
+            consumed.value = true
             outStatus.pointee = .haveData
             return buffer
         }

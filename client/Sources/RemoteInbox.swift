@@ -69,6 +69,16 @@ final class RemoteInbox {
 
     // MARK: - HTTP 连接处理
 
+    // 每个 HTTP 连接的解析状态。Connection-scoped，单连接独享。
+    // @unchecked Sendable：状态只在 NWConnection.receive 的 completion handler
+    // 内读写，由 connection.start(queue: .main) 保证总在 main queue 上，与
+    // RemoteInbox 的 @MainActor isolation 一致——无真实数据竞争。
+    private final class HTTPRequestState: @unchecked Sendable {
+        var accumulated = Data()
+        var contentLength: Int?
+        var headerEndIndex: Int?
+    }
+
     private func handleConnection(_ connection: NWConnection, authToken: String) {
         connection.start(queue: .main)
 
@@ -76,28 +86,35 @@ final class RemoteInbox {
         // Content-Length and read exactly that many body bytes.
         // Do NOT wait for connection close (causes deadlock with
         // HTTP clients that keep the connection open for the response).
-        var accumulated = Data()
-        var contentLength: Int?
-        var headerEndIndex: Int?
+        let state = HTTPRequestState()
+        readMore(connection: connection, state: state, authToken: authToken)
+    }
 
-        func readMore() {
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 1024 * 1024) { [weak self] data, _, isComplete, error in
+    private func readMore(connection: NWConnection, state: HTTPRequestState, authToken: String) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1024 * 1024) {
+            [weak self] data, _, isComplete, error in
+            // NWConnection.receive 的 completion 是 @Sendable，但 Network 框架在
+            // connection.start(queue: .main) 后会在 main queue 上分发回调，所以这里
+            // 用 MainActor.assumeIsolated 同步声明 main actor 隔离（不引入 Task 调度）。
+            MainActor.assumeIsolated {
+                guard let self else { return }
+
                 if let data {
-                    accumulated.append(data)
+                    state.accumulated.append(data)
                 }
 
                 // Try to find header boundary if not yet found
-                if headerEndIndex == nil {
+                if state.headerEndIndex == nil {
                     let separator = Data([0x0D, 0x0A, 0x0D, 0x0A]) // \r\n\r\n
-                    if let range = accumulated.range(of: separator) {
-                        headerEndIndex = range.upperBound
+                    if let range = state.accumulated.range(of: separator) {
+                        state.headerEndIndex = range.upperBound
                         // Parse Content-Length from headers
-                        let headerData = accumulated[accumulated.startIndex..<range.lowerBound]
+                        let headerData = state.accumulated[state.accumulated.startIndex..<range.lowerBound]
                         if let headerStr = String(data: headerData, encoding: .utf8) {
                             for line in headerStr.components(separatedBy: "\r\n") {
                                 if line.lowercased().hasPrefix("content-length:") {
                                     let val = line.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)
-                                    contentLength = Int(val)
+                                    state.contentLength = Int(val)
                                 }
                             }
                         }
@@ -105,27 +122,25 @@ final class RemoteInbox {
                 }
 
                 // Check if we have all the data we need
-                if let hEnd = headerEndIndex {
-                    let bodyReceived = accumulated.count - hEnd
-                    let bodyNeeded = contentLength ?? 0
+                if let hEnd = state.headerEndIndex {
+                    let bodyReceived = state.accumulated.count - hEnd
+                    let bodyNeeded = state.contentLength ?? 0
 
                     if bodyReceived >= bodyNeeded || isComplete || error != nil {
                         // All data received — process immediately
-                        self?.handleFullRequest(accumulated, connection: connection, authToken: authToken)
+                        self.handleFullRequest(state.accumulated, connection: connection, authToken: authToken)
                         return
                     }
                 }
 
                 if isComplete || error != nil {
-                    self?.handleFullRequest(accumulated, connection: connection, authToken: authToken)
+                    self.handleFullRequest(state.accumulated, connection: connection, authToken: authToken)
                     return
                 }
 
-                readMore()
+                self.readMore(connection: connection, state: state, authToken: authToken)
             }
         }
-
-        readMore()
     }
 
     private func handleFullRequest(_ data: Data, connection: NWConnection, authToken: String) {

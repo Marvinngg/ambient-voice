@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Speech
 
 /// B4: 样本级混音器
@@ -159,13 +159,13 @@ final class AudioMixer {
         }
 
         var error: NSError?
-        var consumed = false
+        let consumed = Box(false)
         converter.convert(to: outBuf, error: &error) { _, outStatus in
-            if consumed {
+            if consumed.value {
                 outStatus.pointee = .noDataNow
                 return nil
             }
-            consumed = true
+            consumed.value = true
             outStatus.pointee = .haveData
             return srcBuffer
         }

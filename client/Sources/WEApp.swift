@@ -181,7 +181,7 @@ enum MeetingBenchmark {
     }
 
     static func formatResult(_ result: MeetingResult, totalTime: Double, mdPath: String?) -> [String: Any] {
-        var json: [String: Any] = [
+        let json: [String: Any] = [
             "audio": result.audioPath ?? "",
             "duration_s": round(result.duration * 100) / 100,
             "total_processing_s": round(totalTime * 100) / 100,

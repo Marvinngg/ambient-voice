@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreMedia
 import FluidAudio
 import Speech
@@ -176,13 +176,13 @@ final class MeetingSession {
                 let outBuffer = AVAudioPCMBuffer(pcmFormat: diaFormat, frameCapacity: outCapacity)!
 
                 var error: NSError?
-                var consumed = false
+                let consumed = Box(false)
                 converter.convert(to: outBuffer, error: &error) { _, outStatus in
-                    if consumed {
+                    if consumed.value {
                         outStatus.pointee = .noDataNow
                         return nil
                     }
-                    consumed = true
+                    consumed.value = true
                     outStatus.pointee = .haveData
                     return fullBuffer
                 }
@@ -663,15 +663,18 @@ final class MeetingSession {
             object: session,
             queue: .main
         ) { [weak self] _ in
-            guard let self, let s = self.captureSession else { return }
-            Logger.log("Meeting", "Capture interruption ended, isRunning=\(s.isRunning)")
-            if !s.isRunning {
-                s.startRunning()
-                Logger.log("Meeting", "Capture restarted: isRunning=\(s.isRunning)")
+            // queue: .main 保证 callback 在 main queue 上执行，与 @MainActor 隔离一致
+            MainActor.assumeIsolated {
+                guard let self, let s = self.captureSession else { return }
+                Logger.log("Meeting", "Capture interruption ended, isRunning=\(s.isRunning)")
+                if !s.isRunning {
+                    s.startRunning()
+                    Logger.log("Meeting", "Capture restarted: isRunning=\(s.isRunning)")
+                }
             }
         }
         let obs3 = center.addObserver(
-            forName: .AVCaptureSessionRuntimeError,
+            forName: AVCaptureSession.runtimeErrorNotification,
             object: session,
             queue: .main
         ) { note in
@@ -1082,13 +1085,13 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
 
         var error: NSError?
-        var consumed = false
+        let consumed = Box(false)
         converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed {
+            if consumed.value {
                 outStatus.pointee = .noDataNow
                 return nil
             }
-            consumed = true
+            consumed.value = true
             outStatus.pointee = .haveData
             return buffer
         }

@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Speech
 
 /// 截断测试：模拟 VoiceSession 的流式输入 + stop() 逻辑
@@ -158,10 +158,10 @@ enum TruncationTest {
                         let outCapacity = AVAudioFrameCount(Double(framesToRead) * ratio) + 1
                         let outBuf = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outCapacity)!
                         var error: NSError?
-                        var consumed = false
+                        let consumed = Box(false)
                         converter.convert(to: outBuf, error: &error) { _, outStatus in
-                            if consumed { outStatus.pointee = .noDataNow; return nil }
-                            consumed = true
+                            if consumed.value { outStatus.pointee = .noDataNow; return nil }
+                            consumed.value = true
                             outStatus.pointee = .haveData
                             return chunk
                         }

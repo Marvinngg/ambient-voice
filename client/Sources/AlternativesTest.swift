@@ -59,7 +59,6 @@ enum AlternativesTest {
                         guard result.isFinal else { continue }
 
                         let bestText = String(result.text.characters)
-                        let altCount = result.alternatives.count
 
                         // 提取词级置信度
                         typealias ConfKey = AttributeScopes.SpeechAttributes.ConfidenceAttribute
